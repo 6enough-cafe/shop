@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bàn in tem — Juice Shop</title>
+
+<!--
+  BAN IN TEM (Print Console) — chay tren MAY TINH CUA QUAN.
+  - Ket noi QZ Tray (dang chay nen tren may) -> in ra may in tem da cai trong Windows.
+  - Tu lay Sales Order da Submit (docstatus=1, custom_printed=0) tu ERPNext.
+  - In moi COC 1 tem kho 50x30mm, sau do danh dau custom_printed=1 (chong in trung).
+
+  KHONG deploy trang nay len internet cong khai. Chi mo tren PC quan (mo file
+  truc tiep cung duoc). API key nhap o form ben duoi, luu trong localStorage
+  cua may nay — khong nam trong ma nguon.
+
+  Yeu cau ERPNext:
+   - Da tao 4 custom field (xem erpnext/install_custom_fields.py).
+   - allow_cors bat cho origin cua trang nay (xem README).
+   - 1 user co API key/secret, role co quyen read + write Sales Order.
+-->
+
+<!-- QZ Tray client + QR generator (may quan co internet). Neu offline, tai ve
+     de canh file index.html va sua src thanh ./qz-tray.js / ./qrcode.js -->
+<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+
+<style>
+  :root { --bg:#0f1216; --panel:#171c22; --line:#2a323c; --fg:#e7edf3; --muted:#8b97a4;
+          --ok:#31c48d; --bad:#f05252; --warn:#e3a008; --acc:#4f9cf9; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; }
+  .dot { width:11px; height:11px; border-radius:50%; background:var(--bad); display:inline-block; }
+  .dot.on { background:var(--ok); }
+  .wrap { display:grid; grid-template-columns: 340px 1fr; gap:0; min-height:calc(100vh - 52px); }
+  .side { border-right:1px solid var(--line); padding:16px; }
+  .main { padding:16px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; }
+  input, select { width:100%; padding:8px 10px; background:var(--panel); border:1px solid var(--line);
+                  border-radius:8px; color:var(--fg); font-size:13px; }
+  button { cursor:pointer; border:1px solid var(--line); background:var(--panel); color:var(--fg);
+           padding:9px 14px; border-radius:8px; font-size:13px; }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#04121f; font-weight:600; }
+  button.good { background:var(--ok); border-color:var(--ok); color:#04160e; font-weight:600; }
+  button.stop { background:var(--bad); border-color:var(--bad); color:#fff; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .row > * { flex:1; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px; }
+  .stat { display:flex; gap:18px; flex-wrap:wrap; }
+  .stat div b { font-size:22px; display:block; }
+  .stat div span { font-size:12px; color:var(--muted); }
+  #log { font-family:ui-monospace,Consolas,monospace; font-size:12px; line-height:1.5;
+         background:#0b0e12; border:1px solid var(--line); border-radius:10px; padding:12px;
+         height:340px; overflow:auto; white-space:pre-wrap; }
+  .log-ok{color:var(--ok);} .log-bad{color:var(--bad);} .log-warn{color:var(--warn);} .log-info{color:var(--muted);}
+  .hint { font-size:11px; color:var(--muted); margin-top:4px; }
+  fieldset { border:1px solid var(--line); border-radius:10px; padding:12px; margin:0 0 12px; }
+  legend { font-size:12px; color:var(--muted); padding:0 6px; }
+  /* Vung xem thu tem 50x30mm (ti le hien thi lon hon) */
+  #preview { display:inline-block; }
+</style>
+</head>
+<body>
+
+<header>
+  <span id="qzDot" class="dot" title="QZ Tray"></span>
+  <h1>Bàn in tem — Juice Shop</h1>
+  <span id="statusText" style="color:var(--muted);font-size:13px;">Chưa kết nối QZ Tray</span>
+</header>
+
+<div class="wrap">
+  <!-- ================= CAU HINH ================= -->
+  <aside class="side">
+    <fieldset>
+      <legend>Kết nối ERPNext</legend>
+      <label>BASE_URL (URL gốc ERPNext, không có / cuối)</label>
+      <input id="baseUrl" placeholder="https://erp.quancuaban.com">
+      <label>API Key</label>
+      <input id="apiKey" placeholder="xxxxxxxxxxxx">
+      <label>API Secret</label>
+      <input id="apiSecret" type="password" placeholder="xxxxxxxxxxxx">
+      <div class="hint">Chỉ lưu trên máy này (localStorage). Không đưa lên web công khai.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Máy in &amp; tem</legend>
+      <label>Máy in (lấy từ QZ Tray)</label>
+      <select id="printer"><option value="">— Kết nối QZ Tray trước —</option></select>
+      <div class="row">
+        <label style="flex:1">Rộng (mm)</label>
+        <label style="flex:1">Cao (mm)</label>
+      </div>
+      <div class="row" style="margin-top:0">
+        <input id="lblW" type="number" value="50">
+        <input id="lblH" type="number" value="30">
+      </div>
+      <label>Tên quán (in trên tem)</label>
+      <input id="shopName" placeholder="NUOC EP TUOI">
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;">
+        <input id="showQR" type="checkbox" checked style="width:auto"> In kèm QR mã đơn
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;">
+        <input id="stripAccents" type="checkbox" style="width:auto"> Bỏ dấu tiếng Việt (nếu máy in lỗi font)
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Tự động</legend>
+      <label>Chu kỳ quét đơn (giây)</label>
+      <input id="poll" type="number" value="4">
+    </fieldset>
+
+    <div class="row">
+      <button id="btnConnect" class="primary">Kết nối QZ Tray</button>
+      <button id="btnSave">Lưu cấu hình</button>
+    </div>
+    <div class="row">
+      <button id="btnTest" disabled>In thử 1 tem</button>
+    </div>
+  </aside>
+
+  <!-- ================= BANG DIEU KHIEN ================= -->
+  <main class="main">
+    <div class="card">
+      <div class="stat">
+        <div><b id="stPrinted">0</b><span>Tem đã in (phiên này)</span></div>
+        <div><b id="stOrders">0</b><span>Đơn đã xử lý</span></div>
+        <div><b id="stPending">—</b><span>Đơn chờ in</span></div>
+        <div><b id="stErr">0</b><span>Lỗi</span></div>
+      </div>
+      <div class="row">
+        <button id="btnStart" class="good" disabled>▶ Bắt đầu tự in</button>
+        <button id="btnStop" class="stop" disabled>■ Dừng</button>
+        <button id="btnOnce" disabled>Quét &amp; in 1 lần</button>
+      </div>
+      <div class="row">
+        <input id="reprintName" placeholder="In lại theo mã đơn, vd SAL-ORD-2026-00001">
+        <button id="btnReprint" disabled style="flex:0 0 auto">In lại</button>
+      </div>
+      <div class="hint">“In lại” in tem cho đơn đó dù đã đánh dấu in — không đổi cờ custom_printed.</div>
+    </div>
+
+    <div class="card">
+      <b style="font-size:13px">Nhật ký</b>
+      <div id="log" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <b style="font-size:13px">Xem thử bố cục tem</b>
+      <div style="margin-top:10px" id="previewHost"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* =========================================================================
+   1. CAU HINH — luu/nap tu localStorage
+   ========================================================================= */
+const $ = id => document.getElementById(id);
+const LS_KEY = "juice_print_console_cfg";
+
+function loadCfg(){
+  let c = {};
+  try { c = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
+  $("baseUrl").value = c.baseUrl || "";
+  $("apiKey").value = c.apiKey || "";
+  $("apiSecret").value = c.apiSecret || "";
+  $("shopName").value = c.shopName || "NUOC EP TUOI";
+  $("lblW").value = c.lblW || 50;
+  $("lblH").value = c.lblH || 30;
+  $("poll").value = c.poll || 4;
+  $("showQR").checked = c.showQR !== false;
+  $("stripAccents").checked = !!c.stripAccents;
+  if (c.printer) $("printer").dataset.saved = c.printer;
+}
+function cfg(){
+  return {
+    baseUrl: $("baseUrl").value.trim().replace(/\/+$/,""),
+    apiKey: $("apiKey").value.trim(),
+    apiSecret: $("apiSecret").value.trim(),
+    printer: $("printer").value,
+    shopName: $("shopName").value.trim() || "JUICE SHOP",
+    lblW: parseFloat($("lblW").value) || 50,
+    lblH: parseFloat($("lblH").value) || 30,
+    poll: Math.max(2, parseInt($("poll").value) || 4),
+    showQR: $("showQR").checked,
+    stripAccents: $("stripAccents").checked,
+  };
+}
+function saveCfg(){ localStorage.setItem(LS_KEY, JSON.stringify(cfg())); log("Đã lưu cấu hình.", "ok"); }
+
+/* =========================================================================
+   2. LOG + THONG KE
+   ========================================================================= */
+const stats = { printed:0, orders:0, err:0 };
+function log(msg, kind="info"){
+  const el = $("log");
+  const t = new Date().toLocaleTimeString("vi-VN");
+  const line = document.createElement("div");
+  line.className = "log-" + kind;
+  line.textContent = `[${t}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+function refreshStats(){
+  $("stPrinted").textContent = stats.printed;
+  $("stOrders").textContent = stats.orders;
+  $("stErr").textContent = stats.err;
+}
+
+/* =========================================================================
+   3. TIEN ICH
+   ========================================================================= */
+const VN_MAP = "àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ";
+const ASCII_MAP = "aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd";
+function stripAccents(s){
+  if(!s) return "";
+  let out = "";
+  for(const ch of s){
+    const low = ch.toLowerCase();
+    const i = VN_MAP.indexOf(low);
+    if(i >= 0){ const a = ASCII_MAP[i]; out += (ch === low ? a : a.toUpperCase()); }
+    else out += ch;
+  }
+  return out;
+}
+function esc(s){ return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtText(s){ return esc(cfg().stripAccents ? stripAccents(s) : (s||"")); }
+
+function authHeaders(extra){
+  const c = cfg();
+  return Object.assign({
+    "Authorization": `token ${c.apiKey}:${c.apiSecret}`,
+    "Accept": "application/json",
+  }, extra || {});
+}
+
+/* =========================================================================
+   4. ERPNext REST
+   ========================================================================= */
+async function fetchPending(){
+  const c = cfg();
+  const filters = JSON.stringify([["docstatus","=",1],["custom_printed","=",0]]);
+  const fields = JSON.stringify(["name","customer","custom_contact_phone","custom_delivery_address","custom_order_note","creation"]);
+  const url = `${c.baseUrl}/api/resource/Sales Order?filters=${encodeURIComponent(filters)}`
+            + `&fields=${encodeURIComponent(fields)}&order_by=${encodeURIComponent("creation asc")}&limit_page_length=20`;
+  const res = await fetch(url, { headers: authHeaders() });
+  if(!res.ok) throw new Error(`Lấy danh sách đơn lỗi HTTP ${res.status}`);
+  return (await res.json()).data || [];
+}
+async function getOrderDetail(name){
+  const c = cfg();
+  const url = `${c.baseUrl}/api/resource/Sales Order/${encodeURIComponent(name)}`;
+  const res = await fetch(url, { headers: authHeaders() });
+  if(!res.ok) throw new Error(`Lấy chi tiết ${name} lỗi HTTP ${res.status}`);
+  return (await res.json()).data;
+}
+async function markPrinted(name){
+  const c = cfg();
+  const url = `${c.baseUrl}/api/resource/Sales Order/${encodeURIComponent(name)}`;
+  const res = await fetch(url, {
+    method:"PUT",
+    headers: authHeaders({ "Content-Type":"application/json" }),
+    body: JSON.stringify({ custom_printed: 1 }),
+  });
+  if(!res.ok) throw new Error(`Đánh dấu đã in ${name} lỗi HTTP ${res.status}`);
+}
+
+/* =========================================================================
+   5. DUNG TEM — moi COC 1 tem, kho 50x30mm (HTML render qua driver Windows)
+   ========================================================================= */
+function qrDataUrl(text){
+  try {
+    const qr = qrcode(0, "M");
+    qr.addData(text);
+    qr.make();
+    return qr.createDataURL(4, 0); // cellSize, margin
+  } catch(e){ return ""; }
+}
+
+// Tra ve mang HTML string, moi phan tu = 1 tem (1 coc).
+function buildLabels(order){
+  const c = cfg();
+  const shop = fmtText(c.shopName);
+  const items = order.items || [];
+  // Dem tong so coc de danh so 1/n, 2/n...
+  let total = 0;
+  items.forEach(it => total += Math.max(1, Math.round(it.qty || 1)));
+  const cust = fmtText((order.customer_name || order.customer || "").replace(/\s*\(\d+\)\s*$/,""));
+  const phone = fmtText(order.custom_contact_phone || "");
+  const note = fmtText(order.custom_order_note || "");
+  const qr = c.showQR ? qrDataUrl(order.name) : "";
+
+  const labels = [];
+  let idx = 0;
+  for(const it of items){
+    const n = Math.max(1, Math.round(it.qty || 1));
+    const nameTxt = fmtText(it.item_name || it.item_code);
+    for(let k=0; k<n; k++){
+      idx++;
+      labels.push(labelHtml({
+        w:c.lblW, h:c.lblH, shop, name:nameTxt, order:order.name,
+        idx, total, cust, phone, note, qr,
+      }));
+    }
+  }
+  return labels;
+}
+
+// 1 tem: bo cuc gon cho 50x30mm.
+function labelHtml(d){
+  const qrBlock = d.qr
+    ? `<img src="${d.qr}" style="width:11mm;height:11mm;image-rendering:pixelated;">`
+    : "";
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    @page { size:${d.w}mm ${d.h}mm; margin:0; }
+    html,body{ margin:0; padding:0; }
+    .lbl{ width:${d.w}mm; height:${d.h}mm; padding:1.2mm 1.6mm; box-sizing:border-box;
+          font-family:Arial,Helvetica,sans-serif; color:#000; overflow:hidden; }
+    .top{ display:flex; justify-content:space-between; align-items:baseline;
+          font-size:2.4mm; font-weight:700; border-bottom:.3mm solid #000; padding-bottom:.4mm; }
+    .top .cnt{ font-weight:700; }
+    .name{ font-size:4.6mm; font-weight:800; line-height:1.05; margin:.8mm 0 .3mm;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .note{ font-size:2.4mm; line-height:1.1; max-height:5mm; overflow:hidden; }
+    .body{ display:flex; gap:1.5mm; }
+    .body .txt{ flex:1; min-width:0; }
+    .foot{ font-size:2.2mm; line-height:1.15; margin-top:.4mm;
+           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ord{ font-size:2.2mm; font-weight:700; }
+  </style></head><body>
+    <div class="lbl">
+      <div class="top"><span>${d.shop}</span><span class="cnt">${d.idx}/${d.total}</span></div>
+      <div class="body">
+        <div class="txt">
+          <div class="name">${d.name}</div>
+          ${d.note ? `<div class="note">📝 ${d.note}</div>` : ``}
+          <div class="ord">${d.order}</div>
+          <div class="foot">${d.cust}${d.phone ? " · " + d.phone : ""}</div>
+        </div>
+        ${qrBlock}
+      </div>
+    </div>
+  </body></html>`;
+}
+
+// In 1 mang tem qua QZ Tray. Moi phan tu HTML = 1 trang = 1 tem.
+async function printLabels(labels){
+  const c = cfg();
+  if(!c.printer) throw new Error("Chưa chọn máy in.");
+  const config = qz.configs.create(c.printer, {
+    units: "mm",
+    size: { width: c.lblW, height: c.lblH },
+    margins: 0,
+    colorType: "grayscale",
+    rasterize: true,
+    scaleContent: false,
+    orientation: "portrait",
+  });
+  const data = labels.map(html => ({ type:"pixel", format:"html", flavor:"plain", data:html }));
+  await qz.print(config, data);
+}
+
+/* =========================================================================
+   6. XU LY 1 DON
+   ========================================================================= */
+const inFlight = new Set();
+async function processOrder(o){
+  if(inFlight.has(o.name)) return;
+  inFlight.add(o.name);
+  try {
+    const detail = await getOrderDetail(o.name);
+    const labels = buildLabels(detail);
+    if(!labels.length){ log(`Đơn ${o.name} không có món để in — bỏ qua.`, "warn"); return; }
+    await printLabels(labels);              // IN TRUOC
+    await markPrinted(o.name);              // in xong moi danh dau
+    stats.printed += labels.length; stats.orders++; refreshStats();
+    log(`✔ Đã in ${labels.length} tem cho đơn ${o.name}.`, "ok");
+  } catch(e){
+    stats.err++; refreshStats();
+    // KHONG mark printed neu loi -> vong sau in lai
+    log(`✘ Lỗi đơn ${o.name}: ${e.message} (sẽ thử lại lượt sau)`, "bad");
+  } finally {
+    inFlight.delete(o.name);
+  }
+}
+
+async function scanOnce(){
+  try {
+    const orders = await fetchPending();
+    $("stPending").textContent = orders.length;
+    if(orders.length) log(`Có ${orders.length} đơn chờ in.`, "info");
+    for(const o of orders){ await processOrder(o); }
+  } catch(e){
+    stats.err++; refreshStats();
+    log(`Lỗi quét đơn: ${e.message}`, "bad");
+  }
+}
+
+/* =========================================================================
+   7. VONG LAP TU DONG
+   ========================================================================= */
+let timer = null;
+function startLoop(){
+  if(timer) return;
+  if(!validateCfg()) return;
+  $("btnStart").disabled = true; $("btnStop").disabled = false;
+  log("▶ Bắt đầu tự động in.", "ok");
+  const tick = async () => { await scanOnce(); if(timer) timer = setTimeout(tick, cfg().poll*1000); };
+  timer = setTimeout(tick, 0);
+}
+function stopLoop(){
+  if(timer){ clearTimeout(timer); timer = null; }
+  $("btnStart").disabled = false; $("btnStop").disabled = true;
+  log("■ Đã dừng tự động in.", "warn");
+}
+function validateCfg(){
+  const c = cfg();
+  if(!c.baseUrl || !c.apiKey || !c.apiSecret){ log("Thiếu BASE_URL / API Key / Secret.", "bad"); return false; }
+  if(!c.printer){ log("Chưa chọn máy in.", "bad"); return false; }
+  return true;
+}
+
+/* =========================================================================
+   8. QZ TRAY — ket noi (che do unsigned; production nen dung certificate)
+   ========================================================================= */
+function setupQzSecurity(){
+  // Unsigned: QZ Tray se hien hop thoai "Allow" lan dau — bam "Remember".
+  qz.security.setCertificatePromise((resolve) => resolve());
+  qz.security.setSignaturePromise(() => (resolve) => resolve());
+}
+function setQzUi(on){
+  $("qzDot").classList.toggle("on", on);
+  $("statusText").textContent = on ? "QZ Tray đã kết nối" : "Chưa kết nối QZ Tray";
+  ["btnStart","btnOnce","btnReprint","btnTest"].forEach(id => $(id).disabled = !on);
+}
+async function connectQz(){
+  try {
+    setupQzSecurity();
+    if(!qz.websocket.isActive()){
+      log("Đang kết nối QZ Tray…", "info");
+      await qz.websocket.connect();
+    }
+    log("Đã kết nối QZ Tray.", "ok");
+    const printers = await qz.printers.find();
+    const sel = $("printer");
+    sel.innerHTML = "";
+    (Array.isArray(printers)?printers:[printers]).forEach(p => {
+      const opt = document.createElement("option"); opt.value = p; opt.textContent = p; sel.appendChild(opt);
+    });
+    const saved = sel.dataset.saved;
+    if(saved && [...sel.options].some(o=>o.value===saved)) sel.value = saved;
+    else { try { sel.value = await qz.printers.getDefault(); } catch(e){} }
+    log(`Tìm thấy ${sel.options.length} máy in.`, "info");
+    setQzUi(true);
+  } catch(e){
+    setQzUi(false);
+    log(`Không kết nối được QZ Tray: ${e.message||e}. Kiểm tra QZ Tray đã chạy chưa (icon khay hệ thống).`, "bad");
+  }
+}
+
+/* =========================================================================
+   9. NUT + XEM THU
+   ========================================================================= */
+function sampleOrder(){
+  return {
+    name:"SAL-ORD-2026-00007", customer:"Nguyen Van A (0900123456)",
+    customer_name:"Nguyen Van A (0900123456)",
+    custom_contact_phone:"0900123456", custom_order_note:"Ít đường, nhiều đá",
+    items:[ {item_code:"NEP-CAM", item_name:"Nước ép cam", qty:2},
+            {item_code:"NEP-DUAHAU", item_name:"Dưa hấu ép", qty:1} ],
+  };
+}
+function renderPreview(){
+  const labels = buildLabels(sampleOrder());
+  const host = $("previewHost");
+  host.innerHTML = "";
+  const c = cfg();
+  // hien thi phong to ~4x cho de nhin
+  const scale = 4, wpx = c.lblW*scale*3.78, hpx = c.lblH*scale*3.78;
+  labels.slice(0,3).forEach(html => {
+    const box = document.createElement("div");
+    box.style.cssText = `display:inline-block;margin:6px;border:1px dashed var(--line);background:#fff;`;
+    const ifr = document.createElement("iframe");
+    ifr.style.cssText = `width:${c.lblW}mm;height:${c.lblH}mm;border:0;transform:scale(${scale});transform-origin:top left;`;
+    box.style.width = wpx+"px"; box.style.height = hpx+"px"; box.style.overflow="hidden";
+    box.appendChild(ifr); host.appendChild(box);
+    ifr.contentDocument.open(); ifr.contentDocument.write(html); ifr.contentDocument.close();
+  });
+}
+async function testPrint(){
+  if(!validateCfg()) return;
+  try { await printLabels(buildLabels(sampleOrder())); log("Đã gửi tem thử ra máy in.", "ok"); }
+  catch(e){ log("In thử lỗi: "+e.message, "bad"); }
+}
+async function reprint(){
+  const name = $("reprintName").value.trim();
+  if(!name){ log("Nhập mã đơn để in lại.", "warn"); return; }
+  try {
+    const detail = await getOrderDetail(name);
+    await printLabels(buildLabels(detail));
+    log(`Đã in lại tem cho đơn ${name} (không đổi cờ đã in).`, "ok");
+  } catch(e){ log("In lại lỗi: "+e.message, "bad"); }
+}
+
+/* =========================================================================
+   10. SU KIEN
+   ========================================================================= */
+$("btnConnect").onclick = connectQz;
+$("btnSave").onclick = () => { saveCfg(); renderPreview(); };
+$("btnStart").onclick = startLoop;
+$("btnStop").onclick = stopLoop;
+$("btnOnce").onclick = scanOnce;
+$("btnReprint").onclick = reprint;
+$("btnTest").onclick = testPrint;
+["shopName","lblW","lblH","showQR","stripAccents"].forEach(id => $(id).addEventListener("change", renderPreview));
+
+window.addEventListener("load", () => {
+  if(typeof qz === "undefined"){ log("Chưa tải được qz-tray.js (kiểm tra internet hoặc để file cạnh index.html).", "bad"); }
+  loadCfg(); refreshStats(); renderPreview();
+  log("Sẵn sàng. Bấm “Kết nối QZ Tray” để bắt đầu.", "info");
+});
+window.addEventListener("beforeunload", () => { try { qz.websocket.disconnect(); } catch(e){} });
+</script>
+</body>
+</html>

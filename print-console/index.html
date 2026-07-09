@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bàn in tem — Juice Shop</title>
+<title>Bàn in tem — 6 Enough</title>
 
 <!--
   BAN IN TEM (Print Console) — chay tren MAY TINH CUA QUAN.
@@ -68,7 +68,7 @@
 
 <header>
   <span id="qzDot" class="dot" title="QZ Tray"></span>
-  <h1>Bàn in tem — Juice Shop</h1>
+  <h1>Bàn in tem — 6 Enough</h1>
   <span id="statusText" style="color:var(--muted);font-size:13px;">Chưa kết nối QZ Tray</span>
 </header>
 
@@ -99,7 +99,7 @@
         <input id="lblH" type="number" value="30">
       </div>
       <label>Tên quán (in trên tem)</label>
-      <input id="shopName" placeholder="NUOC EP TUOI">
+      <input id="shopName" placeholder="6 ENOUGH">
       <label style="display:flex;align-items:center;gap:8px;margin-top:12px;">
         <input id="showQR" type="checkbox" checked style="width:auto"> In kèm QR mã đơn
       </label>
@@ -169,7 +169,7 @@ function loadCfg(){
   $("baseUrl").value = c.baseUrl || "";
   $("apiKey").value = c.apiKey || "";
   $("apiSecret").value = c.apiSecret || "";
-  $("shopName").value = c.shopName || "NUOC EP TUOI";
+  $("shopName").value = c.shopName || "6 ENOUGH";
   $("lblW").value = c.lblW || 50;
   $("lblH").value = c.lblH || 30;
   $("poll").value = c.poll || 4;

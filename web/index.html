@@ -322,6 +322,10 @@ function toggleChip(code, idx, text){
   renderSheet();
 }
 
+/* Hình thức nhận hàng */
+let fulfillmentMode = 'delivery';   // 'delivery' | 'pickup'
+function setFulfill(m){ fulfillmentMode = m; renderSheet(); }
+
 function cartArray(){ return Object.values(cart); }
 function cartCount(){ return cartArray().reduce((s,c)=>s+c.qty,0); }
 function cartTotal(){ return cartArray().reduce((s,c)=>s+c.qty*c.item.price,0); }
@@ -411,12 +415,18 @@ function renderSheet(){
         <strong style="color:var(--pulp-dk);font-size:18px">${fmt(cartTotal())}</strong>
       </div>
 
+      <label>Hình thức nhận</label>
+      <div class="chips" style="margin-bottom:12px">
+        <button type="button" class="chip${fulfillmentMode==='delivery'?' on':''}" onclick="setFulfill('delivery')">🛵 Giao tận nơi</button>
+        <button type="button" class="chip${fulfillmentMode==='pickup'?' on':''}" onclick="setFulfill('pickup')">🏪 Tới quán lấy</button>
+      </div>
+
       <label>Họ tên *</label>
       <input id="f-name" placeholder="Nguyễn Văn A" value="${getVal('f-name')}">
       <label>Số điện thoại *</label>
       <input id="f-phone" type="tel" inputmode="numeric" placeholder="09xx xxx xxx" value="${getVal('f-phone')}">
-      <label>Địa chỉ giao *</label>
-      <textarea id="f-addr" placeholder="Số nhà, đường, phường/xã…">${getVal('f-addr')}</textarea>
+      ${fulfillmentMode==='delivery' ? `<label>Địa chỉ giao *</label>
+      <textarea id="f-addr" placeholder="Số nhà, đường, phường/xã…">${getVal('f-addr')}</textarea>` : ''}
       <label>Ghi chú chung cả đơn (tuỳ chọn)</label>
       <textarea id="f-note" placeholder="vd: giao trước 17h, gọi trước khi tới…">${getVal('f-note')}</textarea>
 
@@ -436,10 +446,12 @@ document.addEventListener('input', e=>{ if(e.target.id?.startsWith('f-')) _form[
 async function submitOrder(){
   const name = (_form['f-name']||'').trim();
   const phone= (_form['f-phone']||'').trim();
-  const addr = (_form['f-addr']||'').trim();
+  const isPickup = fulfillmentMode === 'pickup';
+  const addr = isPickup ? '' : (_form['f-addr']||'').trim();
   const note = (_form['f-note']||'').trim();
 
-  if(!name || !phone || !addr){ alert('Vui lòng nhập đủ Họ tên, SĐT và Địa chỉ.'); return; }
+  if(!name || !phone){ alert('Vui lòng nhập Họ tên và SĐT.'); return; }
+  if(!isPickup && !addr){ alert('Giao tận nơi cần nhập Địa chỉ.'); return; }
   if(cartCount()===0){ alert('Giỏ đang trống.'); return; }
 
   const btn = document.getElementById('submitBtn');
@@ -458,6 +470,7 @@ async function submitOrder(){
     phone: phone,
     address: addr,
     note: note,          // ghi chú chung cả đơn
+    fulfillment: isPickup ? 'pickup' : 'delivery',
     items: orderItems
   };
 

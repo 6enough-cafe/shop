@@ -1,15 +1,18 @@
 # Server Script: juice.create_order (Allow Guest)
 #
 # Loại: API | API Method: juice.create_order | Allow Guest: TICK
-# Tạo Sales Order ở Draft (docstatus=0) chờ chủ quán Submit.
-# Luu y: Server Script chay trong RestrictedPython — KHONG "import json"
-# (frappe da cap san "json" nhu global). Cung khong dung frappe._dict.
+# Tạo Sales Order (Draft) ĐÁNH DẤU là đơn webshop -> POS Next tự sinh
+# POS Draft Invoice (hook create_pos_draft_from_webshop) để hiện trong POS.
+#
+# Luu y RestrictedPython: KHONG "import json" (co san global json),
+# KHONG dung frappe._dict (thuoc tinh "_" bi cam).
+
+# Cong ty cua POS (hook tim POS Profile theo company nay). Phai khop POS Profile.
+POS_COMPANY = "6 E N O U G H"
 
 data = frappe.form_dict
 if frappe.request and frappe.request.data:
     try:
-        # Server Script chay trong RestrictedPython -> khong dung frappe._dict
-        # (thuoc tinh bat dau bang "_" bi cam). Dung thang dict tu json.loads.
         data = json.loads(frappe.request.data)
     except Exception:
         pass
@@ -20,8 +23,15 @@ address   = (data.get("address") or "").strip()
 note      = (data.get("note") or "").strip()
 items     = data.get("items") or []
 
-if not cust_name or not phone or not address:
-    frappe.throw("Thiếu thông tin khách (tên/SĐT/địa chỉ).")
+# Hinh thuc nhan hang: "pickup" (toi lay) hoac "delivery" (giao tan noi)
+fulfillment = (data.get("fulfillment") or "delivery").strip().lower()
+is_pickup = fulfillment in ("pickup", "toilay", "pick")
+fulfillment_label = "Tới lấy" if is_pickup else "Giao tận nơi"
+
+if not cust_name or not phone:
+    frappe.throw("Thiếu tên hoặc số điện thoại.")
+if not is_pickup and not address:
+    frappe.throw("Giao tận nơi cần địa chỉ.")
 if not items:
     frappe.throw("Giỏ hàng trống.")
 
@@ -62,20 +72,23 @@ else:
 
 so = frappe.get_doc({
     "doctype": "Sales Order",
+    "company": POS_COMPANY,
     "customer": customer,
+    "source": "Shopping Cart",          # -> POS Next nhan dien la don online
     "order_type": "Sales",
     "transaction_date": frappe.utils.nowdate(),
     "delivery_date": frappe.utils.add_days(frappe.utils.nowdate(), 1),
     "custom_contact_phone": phone,
     "custom_delivery_address": address,
     "custom_order_note": note,
+    "custom_fulfillment": fulfillment_label,
     "items": [
         {"item_code": ci["item_code"], "qty": ci["qty"], "custom_note": ci["note"]}
         for ci in clean_items
     ],
 })
 so.flags.ignore_permissions = True
-so.insert(ignore_permissions=True)
+so.insert(ignore_permissions=True)   # after_insert hook tu tao POS Draft Invoice
 
 frappe.db.commit()
-frappe.response["message"] = {"order_id": so.name, "name": so.name}
+frappe.response["message"] = {"order_id": so.name, "name": so.name, "fulfillment": fulfillment_label}

@@ -244,8 +244,9 @@ function authHeaders(extra){
    ========================================================================= */
 async function fetchPending(){
   const c = cfg();
-  const filters = JSON.stringify([["docstatus","=",1],["custom_printed","=",0]]);
-  const fields = JSON.stringify(["name","customer","custom_contact_phone","custom_delivery_address","custom_order_note","creation"]);
+  // Don web (source = Shopping Cart) chua in tem. SO o trang thai Draft van lay.
+  const filters = JSON.stringify([["source","=","Shopping Cart"],["custom_printed","=",0]]);
+  const fields = JSON.stringify(["name","customer","custom_contact_phone","custom_delivery_address","custom_order_note","custom_fulfillment","creation"]);
   const url = `${c.baseUrl}/api/resource/Sales Order?filters=${encodeURIComponent(filters)}`
             + `&fields=${encodeURIComponent(fields)}&order_by=${encodeURIComponent("creation asc")}&limit_page_length=20`;
   const res = await fetch(url, { headers: authHeaders() });
@@ -293,6 +294,8 @@ function buildLabels(order){
   const cust = fmtText((order.customer_name || order.customer || "").replace(/\s*\(\d+\)\s*$/,""));
   const phone = fmtText(order.custom_contact_phone || "");
   const orderNote = order.custom_order_note || "";
+  const rawFul = order.custom_fulfillment || "";
+  const ful = fmtText(/l/i.test(rawFul) && !/giao/i.test(rawFul) ? "TỚI LẤY" : (rawFul ? "GIAO ĐI" : ""));
   const qr = c.showQR ? qrDataUrl(order.name) : "";
 
   const labels = [];
@@ -306,7 +309,7 @@ function buildLabels(order){
       idx++;
       labels.push(labelHtml({
         w:c.lblW, h:c.lblH, shop, name:nameTxt, order:order.name,
-        idx, total, cust, phone, note, qr,
+        idx, total, cust, phone, note, qr, ful,
       }));
     }
   }
@@ -326,6 +329,7 @@ function labelHtml(d){
     .top{ display:flex; justify-content:space-between; align-items:baseline;
           font-size:2.4mm; font-weight:700; border-bottom:.3mm solid #000; padding-bottom:.4mm; }
     .top .cnt{ font-weight:700; }
+    .top .ful{ font-size:2.2mm; font-weight:800; padding:0 .6mm; border:.25mm solid #000; border-radius:.6mm; }
     .name{ font-size:4.6mm; font-weight:800; line-height:1.05; margin:.8mm 0 .3mm;
             white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .note{ font-size:2.4mm; line-height:1.1; max-height:5mm; overflow:hidden; }
@@ -336,7 +340,7 @@ function labelHtml(d){
     .ord{ font-size:2.2mm; font-weight:700; }
   </style></head><body>
     <div class="lbl">
-      <div class="top"><span>${d.shop}</span><span class="cnt">${d.idx}/${d.total}</span></div>
+      <div class="top"><span>${d.shop}</span>${d.ful?`<span class="ful">${d.ful}</span>`:``}<span class="cnt">${d.idx}/${d.total}</span></div>
       <div class="body">
         <div class="txt">
           <div class="name">${d.name}</div>

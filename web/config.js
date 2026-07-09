@@ -18,5 +18,8 @@ window.CONFIG = {
 
   // Method tạo đơn và lấy menu
   CREATE_METHOD: "juice.create_order",
-  MENU_METHOD:   "juice.get_menu"
+  MENU_METHOD:   "juice.get_menu",
+
+  // Method theo dõi đơn (có sẵn trong POS Next)
+  TRACK_METHOD:  "pos_next.api.webshop.get_order_status"
 };

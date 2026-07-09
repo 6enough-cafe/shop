@@ -144,6 +144,7 @@
 
 <header>
   <div class="blob"></div>
+  <a href="track.html" style="position:absolute;right:16px;top:18px;color:#fff;background:rgba(255,255,255,.20);padding:7px 12px;border-radius:20px;text-decoration:none;font-size:13px;font-weight:700;z-index:2">🔎 Theo dõi đơn</a>
   <h1>Nước Ép Tươi 🍊</h1>
   <p>Chọn món, để lại thông tin — quán xác nhận và làm ngay.</p>
 </header>
@@ -179,7 +180,8 @@ const CONFIG = window.CONFIG || {
   PRICE_LIST: "Standard Selling",
   MENU_MODE: "method",
   CREATE_METHOD: "juice.create_order",
-  MENU_METHOD: "juice.get_menu"
+  MENU_METHOD: "juice.get_menu",
+  TRACK_METHOD: "pos_next.api.webshop.get_order_status"
 };
 
 /* ====================================================================
@@ -500,7 +502,8 @@ function showDone(oid){
       <h3>Đã gửi đơn!</h3>
       <div class="oid">Mã đơn: ${oid}</div>
       <p>Quán sẽ gọi xác nhận qua số bạn để lại.<br>Cảm ơn bạn 🍊</p>
-      <button class="submit" onclick="closeSheet();renderMenu()">Đặt món khác</button>
+      <a class="submit" style="display:block;text-decoration:none;margin-bottom:10px" href="track.html?order=${encodeURIComponent(oid)}">🔎 Theo dõi đơn này</a>
+      <button class="submit" style="background:var(--peel);color:var(--pulp-dk)" onclick="closeSheet();renderMenu()">Đặt món khác</button>
     </div>`;
 }
 

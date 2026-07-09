@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Theo dõi đơn</title>
+<script src="config.js"></script>
+<style>
+  :root{
+    --ink:#23281F; --pulp:#F26B1D; --pulp-dk:#D9560F;
+    --leaf:#4E7C3A; --cream:#FBF7EF; --peel:#FFF1DD;
+    --line:#E7DDC9; --muted:#8A8574; --white:#fff;
+    --radius:16px; --radius-sm:10px; --shadow:0 6px 24px rgba(35,40,31,.10);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--cream);color:var(--ink);line-height:1.45;padding-bottom:40px}
+  header{background:linear-gradient(135deg,var(--pulp),#F59A3C);color:#fff;padding:24px 20px 20px;position:relative;overflow:hidden}
+  header h1{margin:0;font-size:22px;font-weight:800}
+  header p{margin:6px 0 0;font-size:13.5px;opacity:.92}
+  header .blob{position:absolute;right:-30px;top:-30px;width:130px;height:130px;background:rgba(255,255,255,.14);border-radius:50%}
+  header a.back{color:#fff;text-decoration:none;font-size:13px;opacity:.95;display:inline-block;margin-bottom:8px}
+  main{max-width:560px;margin:0 auto;padding:16px}
+  .searchbar{display:flex;gap:8px;margin-bottom:16px}
+  .searchbar input{flex:1;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:15px;background:#fff}
+  .searchbar button{padding:12px 18px;border:none;border-radius:var(--radius-sm);background:var(--pulp);color:#fff;font-weight:700;font-size:15px;cursor:pointer}
+  .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:14px}
+  .status{text-align:center;color:var(--muted);padding:24px}
+  .now{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:var(--radius);color:#fff}
+  .now .ic{font-size:38px;line-height:1}
+  .now .lbl{font-size:20px;font-weight:800}
+  .now .sub{font-size:13px;opacity:.92}
+  .meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:14px;font-size:13.5px;color:var(--muted)}
+  .meta b{color:var(--ink)}
+  /* timeline */
+  .tl{margin:6px 0 2px;padding:0;list-style:none}
+  .tl li{display:flex;gap:14px;align-items:flex-start;position:relative;padding-bottom:18px}
+  .tl li:last-child{padding-bottom:0}
+  .tl .dot{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:18px;background:#EEE7DA;color:#B9AF98;flex:0 0 34px;z-index:1;border:2px solid transparent}
+  .tl li.reached .dot{background:var(--leaf);color:#fff}
+  .tl li.active .dot{background:var(--pulp);color:#fff;border-color:#fff;box-shadow:0 0 0 3px rgba(242,107,29,.28)}
+  .tl .line{position:absolute;left:16px;top:34px;bottom:0;width:2px;background:#EEE7DA}
+  .tl li.reached .line{background:var(--leaf)}
+  .tl li:last-child .line{display:none}
+  .tl .txt{padding-top:5px}
+  .tl .txt .t{font-weight:700;font-size:15px}
+  .tl li.reached .txt .t{color:var(--ink)}
+  .tl li:not(.reached) .txt .t{color:var(--muted)}
+  .tl .txt .s{font-size:12px;color:var(--muted)}
+  .items{margin-top:4px}
+  .items .it{display:flex;justify-content:space-between;font-size:14px;padding:6px 0;border-bottom:1px dashed var(--line)}
+  .items .it:last-child{border-bottom:none}
+  .total{display:flex;justify-content:space-between;font-weight:800;font-size:16px;margin-top:10px}
+  .total b{color:var(--pulp-dk)}
+  .hint{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+  .err{background:#FEECEC;border:1px solid #F5C2C2;color:#B3261E;padding:12px 14px;border-radius:var(--radius-sm);font-size:14px}
+  .refresh{font-size:12px;color:var(--muted);text-align:center;margin-top:10px}
+  .cancelled{background:#FEECEC!important;color:#B3261E!important}
+  .cancelled .ic,.cancelled .lbl,.cancelled .sub{color:#B3261E!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="blob"></div>
+  <a class="back" href="index.html">← Về đặt món</a>
+  <h1>Theo dõi đơn 🔎</h1>
+  <p>Nhập mã đơn để xem tình trạng pha chế.</p>
+</header>
+
+<main>
+  <div class="searchbar">
+    <input id="oid" placeholder="Mã đơn, vd SAL-ORD-2026-00012" autocomplete="off">
+    <button onclick="track()">Theo dõi</button>
+  </div>
+  <div id="out"></div>
+</main>
+
+<script>
+const CONFIG = window.CONFIG || {};
+const BASE = (CONFIG.BASE_URL || "").replace(/\/+$/,"");
+const TRACK_METHOD = CONFIG.TRACK_METHOD || "pos_next.api.webshop.get_order_status";
+const fmt = n => new Intl.NumberFormat('vi-VN').format(Math.round(n||0)) + 'đ';
+const esc = s => (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let timer = null;
+
+function qparam(k){ return new URLSearchParams(location.search).get(k); }
+
+async function track(auto){
+  const el = document.getElementById('out');
+  const oid = (document.getElementById('oid').value || '').trim();
+  if(!oid){ el.innerHTML = ''; return; }
+  // cập nhật URL để chia sẻ được
+  history.replaceState(null,'',`?order=${encodeURIComponent(oid)}`);
+  if(!auto) el.innerHTML = '<div class="status">Đang tra cứu…</div>';
+  try{
+    const res = await fetch(`${BASE}/api/method/${TRACK_METHOD}?order_id=${encodeURIComponent(oid)}`,
+      {headers:{'Accept':'application/json'}});
+    const data = await res.json();
+    if(!res.ok){
+      const msg = (data._server_messages ? JSON.parse(data._server_messages).map(m=>JSON.parse(m).message).join(' ') : '') || data.exception || ('HTTP '+res.status);
+      throw new Error(/not found|DoesNotExist/i.test(msg) ? 'Không tìm thấy đơn này. Kiểm tra lại mã đơn.' : msg);
+    }
+    render(data.message);
+    scheduleRefresh(data.message);
+  }catch(err){
+    stopRefresh();
+    el.innerHTML = `<div class="err">${esc(err.message)}</div>`;
+  }
+}
+
+function render(o){
+  const el = document.getElementById('out');
+  const nowCls = o.is_cancelled ? 'now cancelled' : 'now';
+  const bg = o.is_cancelled ? '' : `style="background:${esc(o.status_color||'#F26B1D')}"`;
+
+  const steps = (o.timeline||[]).map(s=>`
+    <li class="${s.reached?'reached':''} ${s.active?'active':''}">
+      <div class="line"></div>
+      <div class="dot">${s.icon||'•'}</div>
+      <div class="txt"><div class="t">${esc(s.label)}</div>
+        ${s.active ? '<div class="s">Hiện tại</div>' : ''}</div>
+    </li>`).join('');
+
+  const items = (o.items||[]).map(i=>`
+    <div class="it"><span>${esc(i.item_name)} × ${i.qty}</span><span>${fmt(i.amount)}</span></div>`).join('');
+
+  const created = o.creation ? new Date(o.creation.replace(' ','T')).toLocaleString('vi-VN') : '';
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="${nowCls}" ${bg}>
+        <div class="ic">${o.status_icon||'⏳'}</div>
+        <div><div class="lbl">${esc(o.status_label)}</div>
+          <div class="sub">Mã đơn ${esc(o.order_id)}</div></div>
+      </div>
+      <div class="meta">
+        <span>Khách: <b>${esc(o.customer||'')}</b></span>
+        <span>${esc(created)}</span>
+      </div>
+    </div>
+
+    ${o.is_cancelled ? '' : `<div class="card"><ul class="tl">${steps}</ul></div>`}
+
+    <div class="card">
+      <div class="items">${items || '<div class="status">—</div>'}</div>
+      <div class="total"><span>Tổng cộng</span><b>${fmt(o.grand_total)}</b></div>
+    </div>
+    ${o.is_completed ? '<div class="hint">✔️ Đơn đã hoàn thành. Cảm ơn bạn 🍊</div>'
+      : o.is_cancelled ? '<div class="hint">Đơn đã hủy. Liên hệ quán nếu có nhầm lẫn.</div>'
+      : '<div class="refresh">Tự cập nhật mỗi 15 giây…</div>'}
+  `;
+}
+
+function scheduleRefresh(o){
+  stopRefresh();
+  if(o && !o.is_completed && !o.is_cancelled){
+    timer = setTimeout(()=>track(true), 15000);
+  }
+}
+function stopRefresh(){ if(timer){ clearTimeout(timer); timer=null; } }
+
+window.addEventListener('load', ()=>{
+  const q = qparam('order');
+  if(q){ document.getElementById('oid').value = q; track(); }
+  document.getElementById('oid').addEventListener('keydown', e=>{ if(e.key==='Enter') track(); });
+});
+</script>
+</body>
+</html>

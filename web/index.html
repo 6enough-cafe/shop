@@ -524,26 +524,19 @@ async function submitOrder(){
     const data = await res.json();
     if(!res.ok) throw new Error(data.exception || data._server_messages || ('HTTP '+res.status));
 
-    const oid = data.message?.order_id || data.message?.name || '—';
-    showDone(oid);
-    cart = {}; Object.keys(_form).forEach(k=>delete _form[k]);
-    updateCartBar();
+    const oid = data.message?.order_id || data.message?.name;
+    if(!oid) throw new Error('Máy chủ không trả về mã đơn.');
+
+    // Xoá giỏ rồi chuyển thẳng sang trang theo dõi đơn vừa đặt
+    cart = {};
+    const phoneForTrack = phone;
+    Object.keys(_form).forEach(k=>delete _form[k]);
+    btn.textContent = 'Đang mở trang theo dõi…';
+    location.href = `track.html?order=${encodeURIComponent(oid)}&phone=${encodeURIComponent(phoneForTrack)}&new=1`;
   }catch(err){
     btn.disabled=false; btn.textContent='Thử lại';
     alert('Gửi đơn thất bại: '+err.message);
   }
-}
-
-function showDone(oid){
-  document.getElementById('sheetContent').innerHTML = `
-    <div class="done">
-      <div class="big">✅</div>
-      <h3>Đã gửi đơn!</h3>
-      <div class="oid">Mã đơn: ${oid}</div>
-      <p>Quán sẽ gọi xác nhận qua số bạn để lại.<br>Cảm ơn bạn 🍊</p>
-      <a class="submit" style="display:block;text-decoration:none;margin-bottom:10px" href="track.html?order=${encodeURIComponent(oid)}">🔎 Theo dõi đơn này</a>
-      <button class="submit" style="background:var(--peel);color:var(--pulp-dk)" onclick="closeSheet();renderMenu()">Đặt món khác</button>
-    </div>`;
 }
 
 /* ---------- init ---------- */

@@ -74,6 +74,10 @@
   .total b{color:var(--pulp-dk)}
   .backbtn{background:none;border:none;color:var(--pulp-dk);font-weight:700;font-size:14px;cursor:pointer;padding:0 0 10px}
   .err{background:#FEECEC;border:1px solid #F5C2C2;color:#B3261E;padding:12px 14px;border-radius:var(--radius-sm);font-size:14px}
+  .ok-banner{background:#E9F6E3;border:1px solid #BEE0AE;color:#2F5E1E;padding:13px 15px;
+    border-radius:var(--radius-sm);font-size:14px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
+  .ok-banner .b{font-size:22px;line-height:1}
+  .ok-banner b{display:block;font-size:15px;margin-bottom:2px}
   .refresh{font-size:12px;color:var(--muted);text-align:center;margin-top:10px}
   .cancelled{background:#FEECEC!important} .cancelled .ic,.cancelled .lbl,.cancelled .sub{color:#B3261E!important}
 </style>
@@ -108,6 +112,7 @@
     <div class="hint">Mã đơn có dạng <code>SAL-ORD-2026-…</code>. Bạn thấy nó <b>ngay sau khi đặt xong</b> (màn “Đã gửi đơn!”) và khi quán nhắn xác nhận. Khó nhớ? Hãy dùng tab <b>“Theo SĐT”</b>.</div>
   </div>
 
+  <div id="banner"></div>
   <div id="out"></div>
 </main>
 
@@ -226,9 +231,23 @@ function renderStatus(o){
 window.addEventListener('load', ()=>{
   document.getElementById('phone').addEventListener('keydown', e=>{ if(e.key==='Enter') lookupPhone(); });
   document.getElementById('oid').addEventListener('keydown', e=>{ if(e.key==='Enter') track(); });
-  const qo = qparam('order'), qp = qparam('phone');
+  const qo = qparam('order'), qp = qparam('phone'), isNew = qparam('new');
+
+  // Vừa đặt xong từ trang menu → báo thành công
+  if(isNew && qo){
+    document.getElementById('banner').innerHTML = `
+      <div class="ok-banner"><div class="b">✅</div>
+        <div><b>Đã gửi đơn ${esc(qo)}</b>
+        Quán sẽ xác nhận sớm. Theo dõi tiến độ ngay bên dưới —
+        <a href="index.html" style="color:#2F5E1E;font-weight:700">đặt thêm món</a>.</div>
+      </div>`;
+  }
+
+  // Nhớ SĐT (nếu có) để nút “← Đơn khác của tôi” dùng được
+  if(qp){ document.getElementById('phone').value = qp; lastPhone = qp; }
+
   if(qo){ setTab('code'); document.getElementById('oid').value = qo; track(); }
-  else if(qp){ setTab('phone'); document.getElementById('phone').value = qp; lookupPhone(); }
+  else if(qp){ setTab('phone'); lookupPhone(); }
 });
 </script>
 </body>

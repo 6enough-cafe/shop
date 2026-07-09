@@ -39,7 +39,8 @@ for it in items:
         frappe.throw(f"Món không hợp lệ: {code}")
     if ALLOWED_GROUP and doc_item.item_group != ALLOWED_GROUP:
         frappe.throw(f"Món không nằm trong thực đơn: {code}")
-    clean_items.append({"item_code": code, "qty": qty})
+    it_note = (it.get("note") or "").strip()[:140]   # ghi chú riêng cốc này
+    clean_items.append({"item_code": code, "qty": qty, "note": it_note})
 
 if not clean_items:
     frappe.throw("Không có món hợp lệ.")
@@ -68,7 +69,10 @@ so = frappe.get_doc({
     "custom_contact_phone": phone,
     "custom_delivery_address": address,
     "custom_order_note": note,
-    "items": [{"item_code": ci["item_code"], "qty": ci["qty"]} for ci in clean_items],
+    "items": [
+        {"item_code": ci["item_code"], "qty": ci["qty"], "custom_note": ci["note"]}
+        for ci in clean_items
+    ],
 })
 so.flags.ignore_permissions = True
 so.insert(ignore_permissions=True)

@@ -292,7 +292,7 @@ function buildLabels(order){
   items.forEach(it => total += Math.max(1, Math.round(it.qty || 1)));
   const cust = fmtText((order.customer_name || order.customer || "").replace(/\s*\(\d+\)\s*$/,""));
   const phone = fmtText(order.custom_contact_phone || "");
-  const note = fmtText(order.custom_order_note || "");
+  const orderNote = order.custom_order_note || "";
   const qr = c.showQR ? qrDataUrl(order.name) : "";
 
   const labels = [];
@@ -300,6 +300,8 @@ function buildLabels(order){
   for(const it of items){
     const n = Math.max(1, Math.round(it.qty || 1));
     const nameTxt = fmtText(it.item_name || it.item_code);
+    // Ghi chu rieng tung coc (custom_note tren dong SO Item); fallback ghi chu chung don.
+    const note = fmtText(it.custom_note || orderNote || "");
     for(let k=0; k<n; k++){
       idx++;
       labels.push(labelHtml({
@@ -470,9 +472,10 @@ function sampleOrder(){
   return {
     name:"SAL-ORD-2026-00007", customer:"Nguyen Van A (0900123456)",
     customer_name:"Nguyen Van A (0900123456)",
-    custom_contact_phone:"0900123456", custom_order_note:"Ít đường, nhiều đá",
-    items:[ {item_code:"NEP-CAM", item_name:"Nước ép cam", qty:2},
-            {item_code:"NEP-DUAHAU", item_name:"Dưa hấu ép", qty:1} ],
+    custom_contact_phone:"0900123456", custom_order_note:"Giao trước 17h",
+    items:[ {item_code:"NEP-CAM", item_name:"Nước ép cam", qty:1, custom_note:"Ít đá, ít đường"},
+            {item_code:"NEP-CAM", item_name:"Nước ép cam", qty:1, custom_note:"Không đá"},
+            {item_code:"NEP-DUAHAU", item_name:"Dưa hấu ép", qty:1, custom_note:"Bình thường"} ],
   };
 }
 function renderPreview(){

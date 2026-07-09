@@ -29,7 +29,12 @@ create_custom_fields(
              "default": "0", "read_only": 1, "in_list_view": 1, "in_standard_filter": 1,
              "insert_after": "custom_order_note",
              "description": "Ban in tu dong tick sau khi in tem. Chong in trung."},
-        ]
+        ],
+        # Ghi chu theo tung coc (moi dong = 1 coc)
+        "Sales Order Item": [
+            {"fieldname": "custom_note", "label": "Ghi chu (coc)", "fieldtype": "Data",
+             "insert_after": "qty", "in_list_view": 1},
+        ],
     },
     ignore_validate=True,
 )

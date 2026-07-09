@@ -295,16 +295,32 @@ const cssId = s => s.replace(/[^a-zA-Z0-9]/g,'_');
    ==================================================================== */
 function inc(code){
   const it = items.find(i=>i.item_code===code);
-  cart[code] ??= {item:it, qty:0};
+  cart[code] ??= {item:it, qty:0, notes:[]};
   cart[code].qty++;
+  cart[code].notes.push('');          // thêm 1 cốc → 1 ô ghi chú riêng
   renderMenu(); updateCartBar(); refreshSheetIfOpen();
 }
 function dec(code){
   if(!cart[code]) return;
   cart[code].qty--;
+  cart[code].notes.pop();
   if(cart[code].qty<=0) delete cart[code];
   renderMenu(); updateCartBar(); refreshSheetIfOpen();
 }
+
+/* Ghi chú theo TỪNG CỐC */
+const CHIPS = ['Ít đá','Không đá','Nhiều đá','Ít đường','Không đường','Bình thường'];
+const escAttr = s => (s||'').replace(/[&"<>]/g,c=>({'&':'&amp;','"':'&quot;','<':'&lt;','>':'&gt;'}[c]));
+function setNote(code, idx, val){ if(cart[code]) cart[code].notes[idx] = val; }
+function toggleChip(code, idx, text){
+  if(!cart[code]) return;
+  let tokens = (cart[code].notes[idx]||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const p = tokens.indexOf(text);
+  if(p>=0) tokens.splice(p,1); else tokens.push(text);
+  cart[code].notes[idx] = tokens.join(', ');
+  renderSheet();
+}
+
 function cartArray(){ return Object.values(cart); }
 function cartCount(){ return cartArray().reduce((s,c)=>s+c.qty,0); }
 function cartTotal(){ return cartArray().reduce((s,c)=>s+c.qty*c.item.price,0); }
@@ -339,23 +355,53 @@ function refreshSheetIfOpen(){
 }
 
 function renderSheet(){
-  const lines = cartArray().map(c=>`
+  const lines = cartArray().map(c=>{
+    const cups = Array.from({length:c.qty}, (_,i)=>{
+      const val = c.notes[i] || '';
+      const tokens = val.split(',').map(s=>s.trim()).filter(Boolean);
+      const chips = CHIPS.map(t=>{
+        const on = tokens.includes(t);
+        return `<button type="button" class="chip${on?' on':''}" onclick="toggleChip('${c.item.item_code}',${i},'${t}')">${t}</button>`;
+      }).join('');
+      return `
+        <div class="cup">
+          <div class="cup-top">🥤 Cốc ${i+1}${c.qty>1?` / ${c.qty}`:''}</div>
+          <div class="chips">${chips}</div>
+          <input class="cup-note" placeholder="Ghi chú riêng cốc này…" value="${escAttr(val)}"
+                 oninput="setNote('${c.item.item_code}',${i},this.value)">
+        </div>`;
+    }).join('');
+    return `
     <div class="line">
-      <div>
-        <div class="l-name">${c.item.item_name}</div>
-        <div class="l-price">${fmt(c.item.price)} × ${c.qty}</div>
-      </div>
-      <div class="l-right">
-        <div class="step">
-          <button class="minus" onclick="dec('${c.item.item_code}')">−</button>
-          <span class="qty">${c.qty}</span>
-          <button class="plus" onclick="inc('${c.item.item_code}')">+</button>
+      <div class="l-head">
+        <div>
+          <div class="l-name">${c.item.item_name}</div>
+          <div class="l-price">${fmt(c.item.price)} × ${c.qty}</div>
         </div>
-        <strong>${fmt(c.qty*c.item.price)}</strong>
+        <div class="l-right">
+          <div class="step">
+            <button class="minus" onclick="dec('${c.item.item_code}')">−</button>
+            <span class="qty">${c.qty}</span>
+            <button class="plus" onclick="inc('${c.item.item_code}')">+</button>
+          </div>
+          <strong>${fmt(c.qty*c.item.price)}</strong>
+        </div>
       </div>
-    </div>`).join('');
+      <div class="cups">${cups}</div>
+    </div>`;
+  }).join('');
 
   document.getElementById('sheetContent').innerHTML = `
+    <style>
+      .l-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+      .cups{margin:8px 0 4px;display:flex;flex-direction:column;gap:8px}
+      .cup{background:rgba(0,0,0,.03);border:1px solid var(--line,#eee);border-radius:12px;padding:9px 10px}
+      .cup-top{font-size:12px;color:var(--muted,#8a8a8a);margin-bottom:7px;font-weight:700}
+      .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px}
+      .chip{font-size:12.5px;padding:6px 11px;border-radius:999px;border:1px solid var(--line,#ddd);background:#fff;color:#333;cursor:pointer;line-height:1}
+      .chip.on{background:var(--pulp,#f59e0b);border-color:var(--pulp,#f59e0b);color:#fff}
+      .cup-note{width:100%;padding:8px 10px;border:1px solid var(--line,#ddd);border-radius:9px;font-size:13px;box-sizing:border-box}
+    </style>
     <div class="grab"></div>
     <h2>Giỏ của bạn</h2>
     <div class="body">
@@ -371,8 +417,8 @@ function renderSheet(){
       <input id="f-phone" type="tel" inputmode="numeric" placeholder="09xx xxx xxx" value="${getVal('f-phone')}">
       <label>Địa chỉ giao *</label>
       <textarea id="f-addr" placeholder="Số nhà, đường, phường/xã…">${getVal('f-addr')}</textarea>
-      <label>Ghi chú (tuỳ chọn)</label>
-      <textarea id="f-note" placeholder="Ít đá, ít đường…">${getVal('f-note')}</textarea>
+      <label>Ghi chú chung cả đơn (tuỳ chọn)</label>
+      <textarea id="f-note" placeholder="vd: giao trước 17h, gọi trước khi tới…">${getVal('f-note')}</textarea>
 
       <button class="submit" id="submitBtn" onclick="submitOrder()">
         Gửi đơn • ${fmt(cartTotal())}
@@ -399,12 +445,20 @@ async function submitOrder(){
   const btn = document.getElementById('submitBtn');
   btn.disabled = true; btn.textContent = 'Đang gửi…';
 
+  // Mỗi CỐC = 1 dòng qty:1 kèm ghi chú riêng của cốc đó
+  const orderItems = [];
+  cartArray().forEach(c=>{
+    for(let i=0;i<c.qty;i++){
+      orderItems.push({ item_code:c.item.item_code, qty:1, note:(c.notes[i]||'').trim() });
+    }
+  });
+
   const payload = {
     customer_name: name,
     phone: phone,
     address: addr,
-    note: note,
-    items: cartArray().map(c=>({ item_code:c.item.item_code, qty:c.qty }))
+    note: note,          // ghi chú chung cả đơn
+    items: orderItems
   };
 
   try{

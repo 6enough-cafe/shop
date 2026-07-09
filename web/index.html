@@ -107,7 +107,8 @@
   .sheet .grab{width:40px;height:4px;background:var(--line);border-radius:2px;
     margin:10px auto 4px}
   .sheet h2{margin:6px 20px 12px;font-size:20px;font-weight:800}
-  .sheet .body{overflow-y:auto;padding:0 20px 20px}
+  #sheetContent{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+  .sheet .body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 20px 20px}
 
   .line{display:flex;justify-content:space-between;align-items:center;
     padding:12px 0;border-bottom:1px solid var(--line)}
@@ -402,7 +403,6 @@ function renderSheet(){
       .chip.on{background:var(--pulp,#f59e0b);border-color:var(--pulp,#f59e0b);color:#fff}
       .cup-note{width:100%;padding:8px 10px;border:1px solid var(--line,#ddd);border-radius:9px;font-size:13px;box-sizing:border-box}
     </style>
-    <div class="grab"></div>
     <h2>Giỏ của bạn</h2>
     <div class="body">
       ${lines || '<p style="color:var(--muted)">Giỏ trống</p>'}
@@ -482,7 +482,6 @@ async function submitOrder(){
 
 function showDone(oid){
   document.getElementById('sheetContent').innerHTML = `
-    <div class="grab"></div>
     <div class="done">
       <div class="big">✅</div>
       <h3>Đã gửi đơn!</h3>

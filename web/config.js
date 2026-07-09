@@ -3,8 +3,8 @@
    Nạp trước index.html qua <script src="config.js"></script>
    ==================================================================== */
 window.CONFIG = {
-  // URL gốc ERPNext (KHÔNG dấu / cuối)
-  BASE_URL: "https://your-erpnext-site.com",
+  // URL gốc ERPNext (KHÔNG dấu / cuối) — qua Tailscale Funnel công khai
+  BASE_URL: "https://book3.tail030e1.ts.net",
 
   // Item Group chứa món nước ép. Phải khớp ALLOWED_GROUP trong server script.
   ITEM_GROUP: "Nước Ép",

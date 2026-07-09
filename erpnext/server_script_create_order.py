@@ -9,6 +9,7 @@
 
 # Cong ty cua POS (hook tim POS Profile theo company nay). Phai khop POS Profile.
 POS_COMPANY = "6 E N O U G H"
+POS_PROFILE_NAME = "Quan Cafe - POS Chinh"
 
 data = frappe.form_dict
 if frappe.request and frappe.request.data:
@@ -35,7 +36,13 @@ if not is_pickup and not address:
 if not items:
     frappe.throw("Giỏ hàng trống.")
 
-ALLOWED_GROUP = "Nước Ép"
+# Whitelist = đúng bộ Item Group cho phép trong POS Profile (khớp menu POS Next)
+profile = frappe.get_doc("POS Profile", POS_PROFILE_NAME)
+allowed_groups = []
+for r in (profile.item_groups or []):
+    if r.item_group and r.item_group not in allowed_groups:
+        allowed_groups.append(r.item_group)
+
 clean_items = []
 for it in items:
     code = it.get("item_code")
@@ -47,7 +54,7 @@ for it in items:
     )
     if not doc_item or doc_item.disabled or not doc_item.is_sales_item:
         frappe.throw(f"Món không hợp lệ: {code}")
-    if ALLOWED_GROUP and doc_item.item_group != ALLOWED_GROUP:
+    if allowed_groups and doc_item.item_group not in allowed_groups:
         frappe.throw(f"Món không nằm trong thực đơn: {code}")
     it_note = (it.get("note") or "").strip()[:140]   # ghi chú riêng cốc này
     clean_items.append({"item_code": code, "qty": qty, "note": it_note})

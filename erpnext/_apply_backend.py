@@ -62,6 +62,7 @@ def ensure_ss(docname, method, script):
 
 ensure_ss("juice_get_menu", "juice.get_menu", _read("server_script_get_menu.py"))
 ensure_ss("juice_create_order", "juice.create_order", _read("server_script_create_order.py"))
+ensure_ss("juice_get_orders_by_phone", "juice.get_orders_by_phone", _read("server_script_orders_by_phone.py"))
 frappe.db.commit()
 print("server scripts: OK -> juice.get_menu, juice.create_order")
 print("BACKEND SETUP DONE")

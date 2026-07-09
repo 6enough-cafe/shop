@@ -21,5 +21,8 @@ window.CONFIG = {
   MENU_METHOD:   "juice.get_menu",
 
   // Method theo dõi đơn (có sẵn trong POS Next)
-  TRACK_METHOD:  "pos_next.api.webshop.get_order_status"
+  TRACK_METHOD:  "pos_next.api.webshop.get_order_status",
+
+  // Method tra đơn theo số điện thoại
+  ORDERS_METHOD: "juice.get_orders_by_phone"
 };

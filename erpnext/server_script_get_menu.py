@@ -1,24 +1,39 @@
 # Server Script: juice.get_menu (Allow Guest)
 #
 # Loại: API | API Method: juice.get_menu | Allow Guest: TICK
-# Trả về danh sách món + giá đã lọc sẵn, KHÔNG mở quyền đọc Item cho Guest.
+# Trả menu = ĐÚNG bộ hàng của POS Next: các Item Group cho phép trong POS Profile,
+# giá lấy từ bảng giá của chính POS Profile. KHÔNG mở quyền đọc Item cho Guest.
+#
+# RestrictedPython: KHONG import, KHONG frappe._dict, KHONG set().
 
-ALLOWED_GROUP = "Nước Ép"
-PRICE_LIST = "Standard Selling"
+POS_PROFILE = "Quan Cafe - POS Chinh"
+
+profile = frappe.get_doc("POS Profile", POS_PROFILE)
+PRICE_LIST = profile.selling_price_list or "Standard Selling"
+
+# Nhóm hàng cho phép (theo POS Profile). Rỗng => cho tất cả nhóm.
+groups = []
+for r in (profile.item_groups or []):
+    if r.item_group and r.item_group not in groups:
+        groups.append(r.item_group)
+
+filters = {"is_sales_item": 1, "disabled": 0, "has_variants": 0}
+if groups:
+    filters["item_group"] = ["in", groups]
 
 items = frappe.get_all(
     "Item",
-    filters={
-        "item_group": ALLOWED_GROUP,
-        "is_sales_item": 1,
-        "disabled": 0,
-    },
+    filters=filters,
     fields=["item_code", "item_name", "description", "image", "item_group", "standard_rate"],
+    order_by="item_group asc, item_name asc",
     limit_page_length=0,
 )
 
-# Lấy giá từ Item Price
-codes = [i["item_code"] for i in items]
+# Giá từ Item Price của bảng giá POS
+codes = []
+for i in items:
+    codes.append(i["item_code"])
+
 price_map = {}
 if codes:
     prices = frappe.get_all(

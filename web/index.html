@@ -47,6 +47,17 @@
   .cat-title{font-size:13px;font-weight:700;text-transform:uppercase;
     letter-spacing:1px;color:var(--leaf);margin:18px 4px 8px}
 
+  /* Thanh lọc nhóm hàng (giống POS) */
+  #cats{position:sticky;top:0;z-index:20;background:var(--cream);
+    padding:10px 0 9px;margin-bottom:2px;display:flex;gap:8px;overflow-x:auto;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;box-shadow:0 6px 8px -8px rgba(35,40,31,.35)}
+  #cats::-webkit-scrollbar{display:none}
+  #cats .cat{flex:0 0 auto;padding:8px 14px;border:1px solid var(--line);background:#fff;
+    color:var(--ink);border-radius:999px;font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+  #cats .cat .n{color:var(--muted);font-weight:600;font-size:12px;margin-left:4px}
+  #cats .cat.on{background:var(--pulp);border-color:var(--pulp);color:#fff}
+  #cats .cat.on .n{color:rgba(255,255,255,.8)}
+
   .card{
     background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
     display:flex;gap:12px;padding:12px;margin-bottom:10px;align-items:center;
@@ -150,6 +161,7 @@
 </header>
 
 <main>
+  <div id="cats"></div>
   <div id="menu"><div class="status">Đang tải thực đơn…</div></div>
 </main>
 
@@ -224,6 +236,7 @@ async function loadMenu(){
       menuEl.innerHTML = '<div class="status">Chưa có món nào trong thực đơn.</div>';
       return;
     }
+    renderCats();
     renderMenu();
   }catch(err){
     menuEl.innerHTML = `<div class="status error">Không tải được thực đơn.<br>${err.message}
@@ -254,11 +267,35 @@ async function attachPrices(){
 }
 
 /* ====================================================================
-   2. RENDER MENU (gom nhóm theo Item Group)
+   2. RENDER MENU (thanh lọc nhóm + gom nhóm theo Item Group)
    ==================================================================== */
+let activeGroup = null;   // null = Tất cả
+
+function groupNames(){
+  const seen = [];
+  items.forEach(i=>{ if(i.item_group && !seen.includes(i.item_group)) seen.push(i.item_group); });
+  return seen;
+}
+function renderCats(){
+  const el = document.getElementById('cats');
+  const gs = groupNames();
+  if(gs.length <= 1){ el.innerHTML = ''; return; }
+  const chip = (label, g, n) =>
+    `<button class="cat${activeGroup===g?' on':''}" onclick="setGroup(${g===null?'null':`'${g.replace(/'/g,"\\'")}'`})">${label}<span class="n">${n}</span></button>`;
+  let html = chip('Tất cả', null, items.length);
+  gs.forEach(g=> html += chip(g, g, items.filter(i=>i.item_group===g).length));
+  el.innerHTML = html;
+}
+function setGroup(g){
+  activeGroup = g;
+  renderCats(); renderMenu();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
 function renderMenu(){
+  const shown = activeGroup ? items.filter(i=>i.item_group===activeGroup) : items;
   const groups = {};
-  items.forEach(i=>{ (groups[i.item_group] ??= []).push(i); });
+  shown.forEach(i=>{ (groups[i.item_group] ??= []).push(i); });
 
   let html = '';
   for(const [g, list] of Object.entries(groups)){
@@ -268,12 +305,14 @@ function renderMenu(){
       const img = i.image
         ? `<img src="${CONFIG.BASE_URL}${i.image}" alt="" onerror="this.replaceWith(mkNoImg())">`
         : `<div class="noimg">🥤</div>`;
+      // Bỏ mô tả nếu trùng tên món (ERPNext hay set description = item_name)
+      const desc = stripHtml(i.description);
       html += `
       <div class="card">
         ${img}
         <div class="info">
           <p class="name">${i.item_name}</p>
-          ${i.description ? `<p class="desc">${stripHtml(i.description)}</p>`:''}
+          ${desc && desc !== i.item_name ? `<p class="desc">${desc}</p>`:''}
           <span class="price">${fmt(i.price)}</span>
         </div>
         ${ q>0

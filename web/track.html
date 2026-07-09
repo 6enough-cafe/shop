@@ -16,24 +16,44 @@
   html,body{margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
     background:var(--cream);color:var(--ink);line-height:1.45;padding-bottom:40px}
-  header{background:linear-gradient(135deg,var(--pulp),#F59A3C);color:#fff;padding:24px 20px 20px;position:relative;overflow:hidden}
+  header{background:linear-gradient(135deg,var(--pulp),#F59A3C);color:#fff;padding:22px 20px 18px;position:relative;overflow:hidden}
   header h1{margin:0;font-size:22px;font-weight:800}
   header p{margin:6px 0 0;font-size:13.5px;opacity:.92}
   header .blob{position:absolute;right:-30px;top:-30px;width:130px;height:130px;background:rgba(255,255,255,.14);border-radius:50%}
   header a.back{color:#fff;text-decoration:none;font-size:13px;opacity:.95;display:inline-block;margin-bottom:8px}
   main{max-width:560px;margin:0 auto;padding:16px}
-  .searchbar{display:flex;gap:8px;margin-bottom:16px}
-  .searchbar input{flex:1;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:15px;background:#fff}
-  .searchbar button{padding:12px 18px;border:none;border-radius:var(--radius-sm);background:var(--pulp);color:#fff;font-weight:700;font-size:15px;cursor:pointer}
+  /* tabs */
+  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tabs button{flex:1;padding:11px;border:1px solid var(--line);background:#fff;color:var(--muted);
+    border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer}
+  .tabs button.on{background:var(--pulp);border-color:var(--pulp);color:#fff}
+  .panel{display:none} .panel.on{display:block}
+  .searchbar{display:flex;gap:8px}
+  .searchbar input{flex:1;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:16px;background:#fff}
+  .searchbar button{padding:12px 18px;border:none;border-radius:var(--radius-sm);background:var(--pulp);color:#fff;font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap}
+  .hint{font-size:12.5px;color:var(--muted);margin:8px 2px 0;line-height:1.5}
+  .hint code{background:var(--peel);color:var(--pulp-dk);padding:1px 6px;border-radius:6px;font-weight:700}
+  #out{margin-top:16px}
   .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:14px}
   .status{text-align:center;color:var(--muted);padding:24px}
+  /* order list */
+  .olist{display:flex;flex-direction:column;gap:10px}
+  .ocard{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:14px 16px;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+  .ocard:active{transform:scale(.995)}
+  .ocard .r1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .ocard .chip{font-size:12px;font-weight:800;color:#fff;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .ocard .sum{font-size:14.5px;font-weight:700;color:var(--ink)}
+  .ocard .r2{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
+  .ocard .ful{font-size:11.5px;font-weight:700;color:var(--leaf)}
+  .ocard .go{color:var(--pulp);font-weight:800}
+  /* status view */
   .now{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:var(--radius);color:#fff}
   .now .ic{font-size:38px;line-height:1}
   .now .lbl{font-size:20px;font-weight:800}
   .now .sub{font-size:13px;opacity:.92}
   .meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:14px;font-size:13.5px;color:var(--muted)}
   .meta b{color:var(--ink)}
-  /* timeline */
   .tl{margin:6px 0 2px;padding:0;list-style:none}
   .tl li{display:flex;gap:14px;align-items:flex-start;position:relative;padding-bottom:18px}
   .tl li:last-child{padding-bottom:0}
@@ -46,19 +66,16 @@
   .tl li:last-child .line{display:none}
   .tl .txt{padding-top:5px}
   .tl .txt .t{font-weight:700;font-size:15px}
-  .tl li.reached .txt .t{color:var(--ink)}
-  .tl li:not(.reached) .txt .t{color:var(--muted)}
+  .tl li.reached .txt .t{color:var(--ink)} .tl li:not(.reached) .txt .t{color:var(--muted)}
   .tl .txt .s{font-size:12px;color:var(--muted)}
-  .items{margin-top:4px}
   .items .it{display:flex;justify-content:space-between;font-size:14px;padding:6px 0;border-bottom:1px dashed var(--line)}
   .items .it:last-child{border-bottom:none}
   .total{display:flex;justify-content:space-between;font-weight:800;font-size:16px;margin-top:10px}
   .total b{color:var(--pulp-dk)}
-  .hint{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+  .backbtn{background:none;border:none;color:var(--pulp-dk);font-weight:700;font-size:14px;cursor:pointer;padding:0 0 10px}
   .err{background:#FEECEC;border:1px solid #F5C2C2;color:#B3261E;padding:12px 14px;border-radius:var(--radius-sm);font-size:14px}
   .refresh{font-size:12px;color:var(--muted);text-align:center;margin-top:10px}
-  .cancelled{background:#FEECEC!important;color:#B3261E!important}
-  .cancelled .ic,.cancelled .lbl,.cancelled .sub{color:#B3261E!important}
+  .cancelled{background:#FEECEC!important} .cancelled .ic,.cancelled .lbl,.cancelled .sub{color:#B3261E!important}
 </style>
 </head>
 <body>
@@ -66,14 +83,31 @@
   <div class="blob"></div>
   <a class="back" href="index.html">← Về đặt món</a>
   <h1>Theo dõi đơn 🔎</h1>
-  <p>Nhập mã đơn để xem tình trạng pha chế.</p>
+  <p>Xem tình trạng pha chế đơn của bạn.</p>
 </header>
 
 <main>
-  <div class="searchbar">
-    <input id="oid" placeholder="Mã đơn, vd SAL-ORD-2026-00012" autocomplete="off">
-    <button onclick="track()">Theo dõi</button>
+  <div class="tabs">
+    <button id="tab-phone" class="on" onclick="setTab('phone')">📱 Theo SĐT</button>
+    <button id="tab-code" onclick="setTab('code')">🔖 Theo mã đơn</button>
   </div>
+
+  <div id="panel-phone" class="panel on">
+    <div class="searchbar">
+      <input id="phone" type="tel" inputmode="numeric" placeholder="Số điện thoại đã đặt, vd 09xx xxx xxx" autocomplete="off">
+      <button onclick="lookupPhone()">Tìm đơn</button>
+    </div>
+    <div class="hint">Nhập đúng <b>số điện thoại</b> bạn đã dùng khi đặt — hệ thống hiện các đơn gần đây của bạn để bấm xem.</div>
+  </div>
+
+  <div id="panel-code" class="panel">
+    <div class="searchbar">
+      <input id="oid" placeholder="Mã đơn, vd SAL-ORD-2026-00012" autocomplete="off">
+      <button onclick="track()">Theo dõi</button>
+    </div>
+    <div class="hint">Mã đơn có dạng <code>SAL-ORD-2026-…</code>. Bạn thấy nó <b>ngay sau khi đặt xong</b> (màn “Đã gửi đơn!”) và khi quán nhắn xác nhận. Khó nhớ? Hãy dùng tab <b>“Theo SĐT”</b>.</div>
+  </div>
+
   <div id="out"></div>
 </main>
 
@@ -81,19 +115,73 @@
 const CONFIG = window.CONFIG || {};
 const BASE = (CONFIG.BASE_URL || "").replace(/\/+$/,"");
 const TRACK_METHOD = CONFIG.TRACK_METHOD || "pos_next.api.webshop.get_order_status";
+const ORDERS_METHOD = CONFIG.ORDERS_METHOD || "juice.get_orders_by_phone";
 const fmt = n => new Intl.NumberFormat('vi-VN').format(Math.round(n||0)) + 'đ';
 const esc = s => (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let timer = null;
+const ST = {
+  Pending:{l:'Chờ xác nhận',i:'⏳',c:'#6B7280'}, Received:{l:'Đã nhận đơn',i:'✅',c:'#3B82F6'},
+  Preparing:{l:'Đang chuẩn bị',i:'👨‍🍳',c:'#F59E0B'}, Ready:{l:'Sẵn hàng',i:'🎉',c:'#10B981'},
+  Completed:{l:'Hoàn thành',i:'✔️',c:'#6366F1'}, Cancelled:{l:'Đã hủy',i:'❌',c:'#EF4444'},
+};
+let timer = null, lastPhone = '';
+const qparam = k => new URLSearchParams(location.search).get(k);
+function stopRefresh(){ if(timer){ clearTimeout(timer); timer=null; } }
 
-function qparam(k){ return new URLSearchParams(location.search).get(k); }
+function setTab(t){
+  stopRefresh();
+  document.getElementById('tab-phone').classList.toggle('on', t==='phone');
+  document.getElementById('tab-code').classList.toggle('on', t==='code');
+  document.getElementById('panel-phone').classList.toggle('on', t==='phone');
+  document.getElementById('panel-code').classList.toggle('on', t==='code');
+  document.getElementById('out').innerHTML = '';
+}
 
-async function track(auto){
-  const el = document.getElementById('out');
-  const oid = (document.getElementById('oid').value || '').trim();
-  if(!oid){ el.innerHTML = ''; return; }
-  // cập nhật URL để chia sẻ được
-  history.replaceState(null,'',`?order=${encodeURIComponent(oid)}`);
-  if(!auto) el.innerHTML = '<div class="status">Đang tra cứu…</div>';
+/* ---- Tra theo SĐT ---- */
+async function lookupPhone(){
+  stopRefresh();
+  const out = document.getElementById('out');
+  const phone = (document.getElementById('phone').value || '').trim();
+  if(!phone){ out.innerHTML = ''; return; }
+  lastPhone = phone;
+  history.replaceState(null,'',`?phone=${encodeURIComponent(phone)}`);
+  out.innerHTML = '<div class="status">Đang tìm đơn…</div>';
+  try{
+    const res = await fetch(`${BASE}/api/method/${ORDERS_METHOD}?phone=${encodeURIComponent(phone)}`,
+      {headers:{'Accept':'application/json'}});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.exception || ('HTTP '+res.status));
+    renderList(data.message || []);
+  }catch(err){ out.innerHTML = `<div class="err">${esc(err.message)}</div>`; }
+}
+
+function renderList(orders){
+  const out = document.getElementById('out');
+  if(!orders.length){
+    out.innerHTML = '<div class="status">Không tìm thấy đơn nào cho số này.<br>Kiểm tra lại SĐT, hoặc tra bằng mã đơn.</div>';
+    return;
+  }
+  out.innerHTML = `<div class="olist">` + orders.map(o=>{
+    const s = ST[o.status] || ST.Pending;
+    const d = o.creation ? new Date(o.creation.replace(' ','T')).toLocaleString('vi-VN') : '';
+    const ful = o.fulfillment ? `<span class="ful">${esc(o.fulfillment)}</span>` : '';
+    return `<div class="ocard" onclick="openOrder('${esc(o.name)}')">
+      <div class="r1"><span class="sum">${esc(o.summary||o.name)}</span>
+        <span class="chip" style="background:${s.c}">${s.i} ${esc(s.l)}</span></div>
+      <div class="r2"><span>${esc(o.name)} · ${esc(d)}</span><span><b style="color:var(--pulp-dk)">${fmt(o.grand_total)}</b> <span class="go">›</span></span></div>
+      ${ful}
+    </div>`;
+  }).join('') + `</div>`;
+}
+function openOrder(name){ track(name); }
+
+/* ---- Trạng thái 1 đơn ---- */
+async function track(id, auto){
+  stopRefresh();
+  const out = document.getElementById('out');
+  const oid = (id || document.getElementById('oid').value || '').trim();
+  if(!oid){ out.innerHTML = ''; return; }
+  if(!id) history.replaceState(null,'',`?order=${encodeURIComponent(oid)}`);
+  if(!auto) out.innerHTML = '<div class="status">Đang tra cứu…</div>';
   try{
     const res = await fetch(`${BASE}/api/method/${TRACK_METHOD}?order_id=${encodeURIComponent(oid)}`,
       {headers:{'Accept':'application/json'}});
@@ -102,69 +190,45 @@ async function track(auto){
       const msg = (data._server_messages ? JSON.parse(data._server_messages).map(m=>JSON.parse(m).message).join(' ') : '') || data.exception || ('HTTP '+res.status);
       throw new Error(/not found|DoesNotExist/i.test(msg) ? 'Không tìm thấy đơn này. Kiểm tra lại mã đơn.' : msg);
     }
-    render(data.message);
-    scheduleRefresh(data.message);
-  }catch(err){
-    stopRefresh();
-    el.innerHTML = `<div class="err">${esc(err.message)}</div>`;
-  }
+    renderStatus(data.message);
+    if(!data.message.is_completed && !data.message.is_cancelled) timer = setTimeout(()=>track(oid, true), 15000);
+  }catch(err){ out.innerHTML = `<div class="err">${esc(err.message)}</div>`; }
 }
 
-function render(o){
-  const el = document.getElementById('out');
+function renderStatus(o){
+  const out = document.getElementById('out');
   const nowCls = o.is_cancelled ? 'now cancelled' : 'now';
   const bg = o.is_cancelled ? '' : `style="background:${esc(o.status_color||'#F26B1D')}"`;
-
   const steps = (o.timeline||[]).map(s=>`
     <li class="${s.reached?'reached':''} ${s.active?'active':''}">
-      <div class="line"></div>
-      <div class="dot">${s.icon||'•'}</div>
-      <div class="txt"><div class="t">${esc(s.label)}</div>
-        ${s.active ? '<div class="s">Hiện tại</div>' : ''}</div>
-    </li>`).join('');
-
-  const items = (o.items||[]).map(i=>`
-    <div class="it"><span>${esc(i.item_name)} × ${i.qty}</span><span>${fmt(i.amount)}</span></div>`).join('');
-
+      <div class="line"></div><div class="dot">${s.icon||'•'}</div>
+      <div class="txt"><div class="t">${esc(s.label)}</div>${s.active?'<div class="s">Hiện tại</div>':''}</div></li>`).join('');
+  const items = (o.items||[]).map(i=>`<div class="it"><span>${esc(i.item_name)} × ${i.qty}</span><span>${fmt(i.amount)}</span></div>`).join('');
   const created = o.creation ? new Date(o.creation.replace(' ','T')).toLocaleString('vi-VN') : '';
-
-  el.innerHTML = `
+  const back = lastPhone ? `<button class="backbtn" onclick="lookupPhone()">← Đơn khác của tôi</button>` : '';
+  out.innerHTML = `
+    ${back}
     <div class="card">
       <div class="${nowCls}" ${bg}>
         <div class="ic">${o.status_icon||'⏳'}</div>
-        <div><div class="lbl">${esc(o.status_label)}</div>
-          <div class="sub">Mã đơn ${esc(o.order_id)}</div></div>
+        <div><div class="lbl">${esc(o.status_label)}</div><div class="sub">Mã đơn ${esc(o.order_id)}</div></div>
       </div>
-      <div class="meta">
-        <span>Khách: <b>${esc(o.customer||'')}</b></span>
-        <span>${esc(created)}</span>
-      </div>
+      <div class="meta"><span>Khách: <b>${esc(o.customer||'')}</b></span><span>${esc(created)}</span></div>
     </div>
-
     ${o.is_cancelled ? '' : `<div class="card"><ul class="tl">${steps}</ul></div>`}
-
-    <div class="card">
-      <div class="items">${items || '<div class="status">—</div>'}</div>
-      <div class="total"><span>Tổng cộng</span><b>${fmt(o.grand_total)}</b></div>
-    </div>
-    ${o.is_completed ? '<div class="hint">✔️ Đơn đã hoàn thành. Cảm ơn bạn 🍊</div>'
-      : o.is_cancelled ? '<div class="hint">Đơn đã hủy. Liên hệ quán nếu có nhầm lẫn.</div>'
-      : '<div class="refresh">Tự cập nhật mỗi 15 giây…</div>'}
-  `;
+    <div class="card"><div class="items">${items||'<div class="status">—</div>'}</div>
+      <div class="total"><span>Tổng cộng</span><b>${fmt(o.grand_total)}</b></div></div>
+    ${o.is_completed ? '<div class="refresh">✔️ Đơn đã hoàn thành. Cảm ơn bạn 🍊</div>'
+      : o.is_cancelled ? '<div class="refresh">Đơn đã hủy. Liên hệ quán nếu có nhầm lẫn.</div>'
+      : '<div class="refresh">Tự cập nhật mỗi 15 giây…</div>'}`;
 }
-
-function scheduleRefresh(o){
-  stopRefresh();
-  if(o && !o.is_completed && !o.is_cancelled){
-    timer = setTimeout(()=>track(true), 15000);
-  }
-}
-function stopRefresh(){ if(timer){ clearTimeout(timer); timer=null; } }
 
 window.addEventListener('load', ()=>{
-  const q = qparam('order');
-  if(q){ document.getElementById('oid').value = q; track(); }
+  document.getElementById('phone').addEventListener('keydown', e=>{ if(e.key==='Enter') lookupPhone(); });
   document.getElementById('oid').addEventListener('keydown', e=>{ if(e.key==='Enter') track(); });
+  const qo = qparam('order'), qp = qparam('phone');
+  if(qo){ setTab('code'); document.getElementById('oid').value = qo; track(); }
+  else if(qp){ setTab('phone'); document.getElementById('phone').value = qp; lookupPhone(); }
 });
 </script>
 </body>

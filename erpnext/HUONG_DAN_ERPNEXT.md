@@ -9,15 +9,16 @@ Vào **Server Script → New**:
 - **Allow Guest:** ✅ tích
 - **Script:** dán đoạn dưới
 
-```python
-import json
+> **Quan trọng:** Server Script chạy trong RestrictedPython. KHÔNG được
+> `import json` (đã có sẵn global `json`) và KHÔNG dùng `frappe._dict`
+> (thuộc tính bắt đầu bằng `_` bị cấm). Dùng thẳng `json.loads(...)`.
 
+```python
 data = frappe.form_dict
-# Nếu gửi JSON body, đọc từ request
+# Nếu gửi JSON body, đọc từ request (json là global có sẵn, không import)
 if frappe.request and frappe.request.data:
     try:
-        body = json.loads(frappe.request.data)
-        data = frappe._dict(body)
+        data = json.loads(frappe.request.data)
     except Exception:
         pass
 

@@ -2,14 +2,15 @@
 #
 # Loại: API | API Method: juice.create_order | Allow Guest: TICK
 # Tạo Sales Order ở Draft (docstatus=0) chờ chủ quán Submit.
-
-import json
+# Luu y: Server Script chay trong RestrictedPython — KHONG "import json"
+# (frappe da cap san "json" nhu global). Cung khong dung frappe._dict.
 
 data = frappe.form_dict
 if frappe.request and frappe.request.data:
     try:
-        body = json.loads(frappe.request.data)
-        data = frappe._dict(body)
+        # Server Script chay trong RestrictedPython -> khong dung frappe._dict
+        # (thuoc tinh bat dau bang "_" bi cam). Dung thang dict tu json.loads.
+        data = json.loads(frappe.request.data)
     except Exception:
         pass
 

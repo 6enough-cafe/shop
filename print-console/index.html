@@ -1,167 +1,164 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bàn in tem — 6 Enough</title>
+<title>Bàn đơn web — 6 Enough</title>
 
 <!--
-  BAN IN TEM (Print Console) — chay tren MAY TINH CUA QUAN.
-  - Ket noi QZ Tray (dang chay nen tren may) -> in ra may in tem da cai trong Windows.
-  - Tu lay Sales Order da Submit (docstatus=1, custom_printed=0) tu ERPNext.
-  - In moi COC 1 tem kho 50x30mm, sau do danh dau custom_printed=1 (chong in trung).
+  BAN DON WEB (Order Station) — chay tren MAY POS CUA QUAN, 1 tab canh POS Next.
+  - Nhan don web (Sales Order source="Shopping Cart") -> CHUONG + nhap nhay.
+  - Cap nhat trang thai (goi dung API POS dung: update_order_prep_status)
+    => POS Next va trang theo doi cua khach deu thay ngay.
+  - In tem 50x30mm moi coc qua QZ Tray (may in da cai trong Windows).
 
-  KHONG deploy trang nay len internet cong khai. Chi mo tren PC quan (mo file
-  truc tiep cung duoc). API key nhap o form ben duoi, luu trong localStorage
-  cua may nay — khong nam trong ma nguon.
-
-  Yeu cau ERPNext:
-   - Da tao 4 custom field (xem erpnext/install_custom_fields.py).
-   - allow_cors bat cho origin cua trang nay (xem README).
-   - 1 user co API key/secret, role co quyen read + write Sales Order.
+  KHONG deploy trang nay len internet cong khai: no giu API key.
+  Chi mo tren may quan. Key luu trong localStorage cua may nay.
 -->
 
-<!-- QZ Tray client + QR generator (may quan co internet). Neu offline, tai ve
-     de canh file index.html va sua src thanh ./qz-tray.js / ./qrcode.js -->
 <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 
 <style>
   :root { --bg:#0f1216; --panel:#171c22; --line:#2a323c; --fg:#e7edf3; --muted:#8b97a4;
-          --ok:#31c48d; --bad:#f05252; --warn:#e3a008; --acc:#4f9cf9; }
+          --ok:#31c48d; --bad:#f05252; --warn:#e3a008; --acc:#4f9cf9; --new:#f26b1d; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--fg); }
-  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-  header h1 { font-size:18px; margin:0; }
+  header { padding:12px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0; }
   .dot { width:11px; height:11px; border-radius:50%; background:var(--bad); display:inline-block; }
   .dot.on { background:var(--ok); }
-  .wrap { display:grid; grid-template-columns: 340px 1fr; gap:0; min-height:calc(100vh - 52px); }
-  .side { border-right:1px solid var(--line); padding:16px; }
-  .main { padding:16px; }
-  label { display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; }
+  .wrap { display:grid; grid-template-columns: 320px 1fr; min-height:calc(100vh - 50px); }
+  .side { border-right:1px solid var(--line); padding:14px; overflow:auto; }
+  .main { padding:14px 16px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:9px 0 4px; }
   input, select { width:100%; padding:8px 10px; background:var(--panel); border:1px solid var(--line);
                   border-radius:8px; color:var(--fg); font-size:13px; }
   button { cursor:pointer; border:1px solid var(--line); background:var(--panel); color:var(--fg);
-           padding:9px 14px; border-radius:8px; font-size:13px; }
-  button.primary { background:var(--acc); border-color:var(--acc); color:#04121f; font-weight:600; }
-  button.good { background:var(--ok); border-color:var(--ok); color:#04160e; font-weight:600; }
+           padding:8px 13px; border-radius:8px; font-size:13px; }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#04121f; font-weight:700; }
+  button.good { background:var(--ok); border-color:var(--ok); color:#04160e; font-weight:700; }
   button.stop { background:var(--bad); border-color:var(--bad); color:#fff; }
-  button:disabled { opacity:.5; cursor:not-allowed; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
   .row > * { flex:1; }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px; }
-  .stat { display:flex; gap:18px; flex-wrap:wrap; }
-  .stat div b { font-size:22px; display:block; }
-  .stat div span { font-size:12px; color:var(--muted); }
-  #log { font-family:ui-monospace,Consolas,monospace; font-size:12px; line-height:1.5;
-         background:#0b0e12; border:1px solid var(--line); border-radius:10px; padding:12px;
-         height:340px; overflow:auto; white-space:pre-wrap; }
-  .log-ok{color:var(--ok);} .log-bad{color:var(--bad);} .log-warn{color:var(--warn);} .log-info{color:var(--muted);}
-  .hint { font-size:11px; color:var(--muted); margin-top:4px; }
-  fieldset { border:1px solid var(--line); border-radius:10px; padding:12px; margin:0 0 12px; }
+  fieldset { border:1px solid var(--line); border-radius:10px; padding:11px; margin:0 0 11px; }
   legend { font-size:12px; color:var(--muted); padding:0 6px; }
-  /* Vung xem thu tem 50x30mm (ti le hien thi lon hon) */
-  #preview { display:inline-block; }
+  .hint { font-size:11px; color:var(--muted); margin-top:4px; line-height:1.45; }
+  .chk { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--fg); margin-top:9px; }
+  .chk input { width:auto; }
+
+  .bar { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:14px; }
+  .stat b { font-size:20px; display:block; line-height:1.1; }
+  .stat span { font-size:11.5px; color:var(--muted); }
+
+  /* ---- Hang cho don ---- */
+  .queue { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:12px; }
+  .ord { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:13px 14px; position:relative; }
+  .ord.new { border-color:var(--new); box-shadow:0 0 0 2px rgba(242,107,29,.28); animation:pulse 1.1s ease-in-out 6; }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 2px rgba(242,107,29,.25)} 50%{box-shadow:0 0 0 7px rgba(242,107,29,0)} }
+  .ord .top { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .ord .oid { font-weight:800; font-size:13.5px; }
+  .ord .tot { font-weight:800; color:var(--acc); }
+  .ord .sub { font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .tags { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 6px; }
+  .tag { font-size:11px; font-weight:800; padding:3px 8px; border-radius:999px; border:1px solid var(--line); }
+  .tag.ful { color:#ffd7b8; border-color:#7a4a25; background:#3a2415; }
+  .tag.printed { color:#bff0dc; border-color:#245c45; background:#123528; }
+  .tag.st { color:#fff; border:none; }
+  .cups { margin:8px 0 4px; padding:0; list-style:none; }
+  .cups li { font-size:13px; padding:5px 0; border-bottom:1px dashed #232a33; }
+  .cups li:last-child { border-bottom:none; }
+  .cups .nm { font-weight:700; }
+  .cups .nt { color:var(--warn); font-size:12px; }
+  .note { font-size:12px; color:var(--muted); margin:6px 0 0; }
+  .acts { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .acts button { flex:0 0 auto; padding:6px 10px; font-size:12px; font-weight:700; }
+  .acts .on { outline:2px solid currentColor; }
+  .empty { color:var(--muted); text-align:center; padding:40px; border:1px dashed var(--line); border-radius:12px; }
+
+  #log { font-family:ui-monospace,Consolas,monospace; font-size:11.5px; line-height:1.5;
+         background:#0b0e12; border:1px solid var(--line); border-radius:10px; padding:10px;
+         height:150px; overflow:auto; white-space:pre-wrap; margin-top:14px; }
+  .log-ok{color:var(--ok);} .log-bad{color:var(--bad);} .log-warn{color:var(--warn);} .log-info{color:var(--muted);}
 </style>
 </head>
 <body>
 
 <header>
   <span id="qzDot" class="dot" title="QZ Tray"></span>
-  <h1>Bàn in tem — 6 Enough</h1>
-  <span id="statusText" style="color:var(--muted);font-size:13px;">Chưa kết nối QZ Tray</span>
+  <h1>Bàn đơn web — 6 Enough</h1>
+  <span id="statusText" style="color:var(--muted);font-size:12.5px;">Chưa kết nối QZ Tray</span>
 </header>
 
 <div class="wrap">
-  <!-- ================= CAU HINH ================= -->
   <aside class="side">
     <fieldset>
       <legend>Kết nối ERPNext</legend>
-      <label>BASE_URL (URL gốc ERPNext, không có / cuối)</label>
-      <input id="baseUrl" placeholder="https://erp.quancuaban.com">
+      <label>BASE_URL</label>
+      <input id="baseUrl" placeholder="https://book3.tail030e1.ts.net">
       <label>API Key</label>
       <input id="apiKey" placeholder="xxxxxxxxxxxx">
       <label>API Secret</label>
       <input id="apiSecret" type="password" placeholder="xxxxxxxxxxxx">
-      <div class="hint">Chỉ lưu trên máy này (localStorage). Không đưa lên web công khai.</div>
+      <div class="hint">Chỉ lưu trên máy này. Không đưa trang này lên internet.</div>
     </fieldset>
 
     <fieldset>
       <legend>Máy in &amp; tem</legend>
-      <label>Máy in (lấy từ QZ Tray)</label>
+      <label>Máy in (từ QZ Tray)</label>
       <select id="printer"><option value="">— Kết nối QZ Tray trước —</option></select>
       <div class="row">
-        <label style="flex:1">Rộng (mm)</label>
-        <label style="flex:1">Cao (mm)</label>
-      </div>
-      <div class="row" style="margin-top:0">
-        <input id="lblW" type="number" value="50">
-        <input id="lblH" type="number" value="30">
+        <div><label>Rộng (mm)</label><input id="lblW" type="number" value="50"></div>
+        <div><label>Cao (mm)</label><input id="lblH" type="number" value="30"></div>
       </div>
       <label>Tên quán (in trên tem)</label>
       <input id="shopName" placeholder="6 ENOUGH">
-      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;">
-        <input id="showQR" type="checkbox" checked style="width:auto"> In kèm QR mã đơn
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;">
-        <input id="stripAccents" type="checkbox" style="width:auto"> Bỏ dấu tiếng Việt (nếu máy in lỗi font)
-      </label>
+      <div class="chk"><input id="showQR" type="checkbox" checked> In kèm QR mã đơn</div>
+      <div class="chk"><input id="stripAccents" type="checkbox"> Bỏ dấu tiếng Việt (nếu máy in lỗi font)</div>
     </fieldset>
 
     <fieldset>
-      <legend>Tự động</legend>
-      <label>Chu kỳ quét đơn (giây)</label>
-      <input id="poll" type="number" value="4">
+      <legend>Báo đơn mới</legend>
+      <div class="chk"><input id="sound" type="checkbox" checked> 🔔 Chuông khi có đơn mới</div>
+      <div class="chk"><input id="notify" type="checkbox" checked> 🖥️ Thông báo hệ thống</div>
+      <div class="chk"><input id="autoPrint" type="checkbox"> 🖨️ Tự in tem khi đơn mới về</div>
+      <div class="chk"><input id="showDone" type="checkbox"> Hiện cả đơn đã xong/đã hủy</div>
+      <label>Chu kỳ quét (giây)</label>
+      <input id="poll" type="number" value="5">
     </fieldset>
 
     <div class="row">
       <button id="btnConnect" class="primary">Kết nối QZ Tray</button>
-      <button id="btnSave">Lưu cấu hình</button>
+      <button id="btnSave">Lưu</button>
     </div>
     <div class="row">
       <button id="btnTest" disabled>In thử 1 tem</button>
     </div>
   </aside>
 
-  <!-- ================= BANG DIEU KHIEN ================= -->
   <main class="main">
-    <div class="card">
-      <div class="stat">
-        <div><b id="stPrinted">0</b><span>Tem đã in (phiên này)</span></div>
-        <div><b id="stOrders">0</b><span>Đơn đã xử lý</span></div>
-        <div><b id="stPending">—</b><span>Đơn chờ in</span></div>
-        <div><b id="stErr">0</b><span>Lỗi</span></div>
-      </div>
-      <div class="row">
-        <button id="btnStart" class="good" disabled>▶ Bắt đầu tự in</button>
-        <button id="btnStop" class="stop" disabled>■ Dừng</button>
-        <button id="btnOnce" disabled>Quét &amp; in 1 lần</button>
-      </div>
-      <div class="row">
-        <input id="reprintName" placeholder="In lại theo mã đơn, vd SAL-ORD-2026-00001">
-        <button id="btnReprint" disabled style="flex:0 0 auto">In lại</button>
-      </div>
-      <div class="hint">“In lại” in tem cho đơn đó dù đã đánh dấu in — không đổi cờ custom_printed.</div>
+    <div class="bar">
+      <div class="stat"><b id="stPending">0</b><span>Đơn đang chờ</span></div>
+      <div class="stat"><b id="stPrinted">0</b><span>Tem đã in (phiên này)</span></div>
+      <div class="stat"><b id="stErr">0</b><span>Lỗi</span></div>
+      <div style="flex:1"></div>
+      <button id="btnStart" class="good">▶ Bắt đầu theo dõi</button>
+      <button id="btnStop" class="stop" disabled>■ Dừng</button>
+      <button id="btnOnce">🔄 Quét ngay</button>
     </div>
 
-    <div class="card">
-      <b style="font-size:13px">Nhật ký</b>
-      <div id="log" style="margin-top:8px"></div>
-    </div>
-
-    <div class="card">
-      <b style="font-size:13px">Xem thử bố cục tem</b>
-      <div style="margin-top:10px" id="previewHost"></div>
-    </div>
+    <div id="queue" class="queue"></div>
+    <div id="log"></div>
   </main>
 </div>
 
 <script>
 /* =========================================================================
-   1. CAU HINH — luu/nap tu localStorage
+   1. CAU HINH
    ========================================================================= */
 const $ = id => document.getElementById(id);
-const LS_KEY = "juice_print_console_cfg";
+const LS_KEY = "juice_order_station_cfg";
 
 function loadCfg(){
   let c = {};
@@ -172,9 +169,13 @@ function loadCfg(){
   $("shopName").value = c.shopName || "6 ENOUGH";
   $("lblW").value = c.lblW || 50;
   $("lblH").value = c.lblH || 30;
-  $("poll").value = c.poll || 4;
+  $("poll").value = c.poll || 5;
   $("showQR").checked = c.showQR !== false;
   $("stripAccents").checked = !!c.stripAccents;
+  $("sound").checked = c.sound !== false;
+  $("notify").checked = c.notify !== false;
+  $("autoPrint").checked = !!c.autoPrint;
+  $("showDone").checked = !!c.showDone;
   if (c.printer) $("printer").dataset.saved = c.printer;
 }
 function cfg(){
@@ -183,32 +184,33 @@ function cfg(){
     apiKey: $("apiKey").value.trim(),
     apiSecret: $("apiSecret").value.trim(),
     printer: $("printer").value,
-    shopName: $("shopName").value.trim() || "JUICE SHOP",
+    shopName: $("shopName").value.trim() || "6 ENOUGH",
     lblW: parseFloat($("lblW").value) || 50,
     lblH: parseFloat($("lblH").value) || 30,
-    poll: Math.max(2, parseInt($("poll").value) || 4),
+    poll: Math.max(3, parseInt($("poll").value) || 5),
     showQR: $("showQR").checked,
     stripAccents: $("stripAccents").checked,
+    sound: $("sound").checked,
+    notify: $("notify").checked,
+    autoPrint: $("autoPrint").checked,
+    showDone: $("showDone").checked,
   };
 }
-function saveCfg(){ localStorage.setItem(LS_KEY, JSON.stringify(cfg())); log("Đã lưu cấu hình.", "ok"); }
+function saveCfg(){ localStorage.setItem(LS_KEY, JSON.stringify(cfg())); log("Đã lưu cấu hình.","ok"); }
 
 /* =========================================================================
-   2. LOG + THONG KE
+   2. LOG + STATS
    ========================================================================= */
-const stats = { printed:0, orders:0, err:0 };
+const stats = { printed:0, err:0 };
 function log(msg, kind="info"){
   const el = $("log");
-  const t = new Date().toLocaleTimeString("vi-VN");
   const line = document.createElement("div");
   line.className = "log-" + kind;
-  line.textContent = `[${t}] ${msg}`;
-  el.appendChild(line);
-  el.scrollTop = el.scrollHeight;
+  line.textContent = `[${new Date().toLocaleTimeString("vi-VN")}] ${msg}`;
+  el.appendChild(line); el.scrollTop = el.scrollHeight;
 }
 function refreshStats(){
   $("stPrinted").textContent = stats.printed;
-  $("stOrders").textContent = stats.orders;
   $("stErr").textContent = stats.err;
 }
 
@@ -221,106 +223,149 @@ function stripAccents(s){
   if(!s) return "";
   let out = "";
   for(const ch of s){
-    const low = ch.toLowerCase();
-    const i = VN_MAP.indexOf(low);
+    const low = ch.toLowerCase(); const i = VN_MAP.indexOf(low);
     if(i >= 0){ const a = ASCII_MAP[i]; out += (ch === low ? a : a.toUpperCase()); }
     else out += ch;
   }
   return out;
 }
-function esc(s){ return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+const esc = s => (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function fmtText(s){ return esc(cfg().stripAccents ? stripAccents(s) : (s||"")); }
-
+const money = n => new Intl.NumberFormat('vi-VN').format(Math.round(n||0)) + 'đ';
 function authHeaders(extra){
   const c = cfg();
-  return Object.assign({
-    "Authorization": `token ${c.apiKey}:${c.apiSecret}`,
-    "Accept": "application/json",
-  }, extra || {});
+  return Object.assign({ "Authorization": `token ${c.apiKey}:${c.apiSecret}`, "Accept":"application/json" }, extra||{});
+}
+
+/* Trang thai — khop POS Next */
+const ST = {
+  Pending:  {l:"Chờ xác nhận", i:"⏳", c:"#6B7280"},
+  Received: {l:"Đã nhận",      i:"✅", c:"#3B82F6"},
+  Preparing:{l:"Đang làm",     i:"👨‍🍳", c:"#F59E0B"},
+  Ready:    {l:"Sẵn hàng",     i:"🎉", c:"#10B981"},
+  Completed:{l:"Hoàn thành",   i:"✔️", c:"#6366F1"},
+  Cancelled:{l:"Đã hủy",       i:"❌", c:"#EF4444"},
+};
+const DONE = ["Completed","Cancelled"];
+
+/* =========================================================================
+   4. CHUONG + THONG BAO
+   ========================================================================= */
+let audioCtx = null;
+function beep(){
+  if(!cfg().sound) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = audioCtx.currentTime;
+    [880, 1320].forEach((f,i)=>{
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      const s = t0 + i*0.18;
+      g.gain.setValueAtTime(0.0001, s);
+      g.gain.exponentialRampToValueAtTime(0.35, s+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, s+0.16);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(s); o.stop(s+0.18);
+    });
+  }catch(e){}
+}
+let titleTimer = null;
+function flashTitle(n){
+  clearInterval(titleTimer);
+  const base = "Bàn đơn web — 6 Enough";
+  let on = false, left = 12;
+  titleTimer = setInterval(()=>{
+    document.title = on ? base : `🔔 ${n} đơn mới!`;
+    on = !on;
+    if(--left <= 0){ clearInterval(titleTimer); document.title = base; }
+  }, 700);
+}
+function notify(order){
+  if(!cfg().notify || !("Notification" in window) || Notification.permission !== "granted") return;
+  try{
+    new Notification("🔔 Đơn web mới", {
+      body: `${order.name} · ${order.custom_fulfillment||""} · ${money(order.grand_total)}`,
+      tag: order.name,
+    });
+  }catch(e){}
 }
 
 /* =========================================================================
-   4. ERPNext REST
+   5. ERPNext REST
    ========================================================================= */
-async function fetchPending(){
+async function listOrders(){
   const c = cfg();
-  // Don web (source = Shopping Cart) chua in tem. SO o trang thai Draft van lay.
-  const filters = JSON.stringify([["source","=","Shopping Cart"],["custom_printed","=",0]]);
-  const fields = JSON.stringify(["name","customer","custom_contact_phone","custom_delivery_address","custom_order_note","custom_fulfillment","creation"]);
+  const filters = JSON.stringify([["source","=","Shopping Cart"]]);
+  const fields = JSON.stringify(["name","customer_name","custom_contact_phone","custom_delivery_address",
+    "custom_order_note","custom_fulfillment","custom_order_prep_status","custom_printed",
+    "grand_total","creation","modified","docstatus"]);
   const url = `${c.baseUrl}/api/resource/Sales Order?filters=${encodeURIComponent(filters)}`
-            + `&fields=${encodeURIComponent(fields)}&order_by=${encodeURIComponent("creation asc")}&limit_page_length=20`;
+            + `&fields=${encodeURIComponent(fields)}&order_by=${encodeURIComponent("creation desc")}&limit_page_length=40`;
   const res = await fetch(url, { headers: authHeaders() });
   if(!res.ok) throw new Error(`Lấy danh sách đơn lỗi HTTP ${res.status}`);
   return (await res.json()).data || [];
 }
-async function getOrderDetail(name){
+const detailCache = {};   // name -> {modified, doc}
+async function getDetail(o){
+  const hit = detailCache[o.name];
+  if(hit && hit.modified === o.modified) return hit.doc;
   const c = cfg();
-  const url = `${c.baseUrl}/api/resource/Sales Order/${encodeURIComponent(name)}`;
-  const res = await fetch(url, { headers: authHeaders() });
-  if(!res.ok) throw new Error(`Lấy chi tiết ${name} lỗi HTTP ${res.status}`);
-  return (await res.json()).data;
+  const res = await fetch(`${c.baseUrl}/api/resource/Sales Order/${encodeURIComponent(o.name)}`, { headers: authHeaders() });
+  if(!res.ok) throw new Error(`Lấy chi tiết ${o.name} lỗi HTTP ${res.status}`);
+  const doc = (await res.json()).data;
+  detailCache[o.name] = { modified: o.modified, doc };
+  return doc;
 }
 async function markPrinted(name){
   const c = cfg();
-  const url = `${c.baseUrl}/api/resource/Sales Order/${encodeURIComponent(name)}`;
-  const res = await fetch(url, {
-    method:"PUT",
-    headers: authHeaders({ "Content-Type":"application/json" }),
+  const res = await fetch(`${c.baseUrl}/api/resource/Sales Order/${encodeURIComponent(name)}`, {
+    method:"PUT", headers: authHeaders({ "Content-Type":"application/json" }),
     body: JSON.stringify({ custom_printed: 1 }),
   });
   if(!res.ok) throw new Error(`Đánh dấu đã in ${name} lỗi HTTP ${res.status}`);
 }
-
-/* =========================================================================
-   5. DUNG TEM — moi COC 1 tem, kho 50x30mm (HTML render qua driver Windows)
-   ========================================================================= */
-function qrDataUrl(text){
-  try {
-    const qr = qrcode(0, "M");
-    qr.addData(text);
-    qr.make();
-    return qr.createDataURL(4, 0); // cellSize, margin
-  } catch(e){ return ""; }
+// Dung DUNG API ma POS Next dung -> POS + trang khach deu cap nhat
+async function setStatus(name, status){
+  const c = cfg();
+  const res = await fetch(`${c.baseUrl}/api/method/pos_next.api.webshop.update_order_prep_status`, {
+    method:"POST", headers: authHeaders({ "Content-Type":"application/json" }),
+    body: JSON.stringify({ order_id: name, status }),
+  });
+  if(!res.ok) throw new Error(`Đổi trạng thái ${name} lỗi HTTP ${res.status}`);
 }
 
-// Tra ve mang HTML string, moi phan tu = 1 tem (1 coc).
+/* =========================================================================
+   6. TEM (giu nguyen: 50x30mm, moi coc 1 tem)
+   ========================================================================= */
+function qrDataUrl(text){
+  try { const qr = qrcode(0,"M"); qr.addData(text); qr.make(); return qr.createDataURL(4,0); }
+  catch(e){ return ""; }
+}
 function buildLabels(order){
   const c = cfg();
   const shop = fmtText(c.shopName);
   const items = order.items || [];
-  // Dem tong so coc de danh so 1/n, 2/n...
-  let total = 0;
-  items.forEach(it => total += Math.max(1, Math.round(it.qty || 1)));
+  let total = 0; items.forEach(it => total += Math.max(1, Math.round(it.qty || 1)));
   const cust = fmtText((order.customer_name || order.customer || "").replace(/\s*\(\d+\)\s*$/,""));
   const phone = fmtText(order.custom_contact_phone || "");
   const orderNote = order.custom_order_note || "";
   const rawFul = order.custom_fulfillment || "";
   const ful = fmtText(/l/i.test(rawFul) && !/giao/i.test(rawFul) ? "TỚI LẤY" : (rawFul ? "GIAO ĐI" : ""));
   const qr = c.showQR ? qrDataUrl(order.name) : "";
-
-  const labels = [];
-  let idx = 0;
+  const labels = []; let idx = 0;
   for(const it of items){
     const n = Math.max(1, Math.round(it.qty || 1));
     const nameTxt = fmtText(it.item_name || it.item_code);
-    // Ghi chu rieng tung coc (custom_note tren dong SO Item); fallback ghi chu chung don.
     const note = fmtText(it.custom_note || orderNote || "");
-    for(let k=0; k<n; k++){
+    for(let k=0;k<n;k++){
       idx++;
-      labels.push(labelHtml({
-        w:c.lblW, h:c.lblH, shop, name:nameTxt, order:order.name,
-        idx, total, cust, phone, note, qr, ful,
-      }));
+      labels.push(labelHtml({ w:c.lblW, h:c.lblH, shop, name:nameTxt, order:order.name, idx, total, cust, phone, note, qr, ful }));
     }
   }
   return labels;
 }
-
-// 1 tem: bo cuc gon cho 50x30mm.
 function labelHtml(d){
-  const qrBlock = d.qr
-    ? `<img src="${d.qr}" style="width:11mm;height:11mm;image-rendering:pixelated;">`
-    : "";
+  const qrBlock = d.qr ? `<img src="${d.qr}" style="width:11mm;height:11mm;image-rendering:pixelated;">` : "";
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     @page { size:${d.w}mm ${d.h}mm; margin:0; }
     html,body{ margin:0; padding:0; }
@@ -328,19 +373,17 @@ function labelHtml(d){
           font-family:Arial,Helvetica,sans-serif; color:#000; overflow:hidden; }
     .top{ display:flex; justify-content:space-between; align-items:baseline;
           font-size:2.4mm; font-weight:700; border-bottom:.3mm solid #000; padding-bottom:.4mm; }
-    .top .cnt{ font-weight:700; }
     .top .ful{ font-size:2.2mm; font-weight:800; padding:0 .6mm; border:.25mm solid #000; border-radius:.6mm; }
     .name{ font-size:4.6mm; font-weight:800; line-height:1.05; margin:.8mm 0 .3mm;
             white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .note{ font-size:2.4mm; line-height:1.1; max-height:5mm; overflow:hidden; }
     .body{ display:flex; gap:1.5mm; }
     .body .txt{ flex:1; min-width:0; }
-    .foot{ font-size:2.2mm; line-height:1.15; margin-top:.4mm;
-           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .foot{ font-size:2.2mm; line-height:1.15; margin-top:.4mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .ord{ font-size:2.2mm; font-weight:700; }
   </style></head><body>
     <div class="lbl">
-      <div class="top"><span>${d.shop}</span>${d.ful?`<span class="ful">${d.ful}</span>`:``}<span class="cnt">${d.idx}/${d.total}</span></div>
+      <div class="top"><span>${d.shop}</span>${d.ful?`<span class="ful">${d.ful}</span>`:``}<span>${d.idx}/${d.total}</span></div>
       <div class="body">
         <div class="txt">
           <div class="name">${d.name}</div>
@@ -353,185 +396,205 @@ function labelHtml(d){
     </div>
   </body></html>`;
 }
-
-// In 1 mang tem qua QZ Tray. Moi phan tu HTML = 1 trang = 1 tem.
 async function printLabels(labels){
   const c = cfg();
   if(!c.printer) throw new Error("Chưa chọn máy in.");
   const config = qz.configs.create(c.printer, {
-    units: "mm",
-    size: { width: c.lblW, height: c.lblH },
-    margins: 0,
-    colorType: "grayscale",
-    rasterize: true,
-    scaleContent: false,
-    orientation: "portrait",
+    units:"mm", size:{ width:c.lblW, height:c.lblH }, margins:0,
+    colorType:"grayscale", rasterize:true, scaleContent:false, orientation:"portrait",
   });
-  const data = labels.map(html => ({ type:"pixel", format:"html", flavor:"plain", data:html }));
-  await qz.print(config, data);
+  await qz.print(config, labels.map(html => ({ type:"pixel", format:"html", flavor:"plain", data:html })));
 }
 
 /* =========================================================================
-   6. XU LY 1 DON
+   7. HANG CHO DON
    ========================================================================= */
-const inFlight = new Set();
-async function processOrder(o){
-  if(inFlight.has(o.name)) return;
-  inFlight.add(o.name);
-  try {
-    const detail = await getOrderDetail(o.name);
-    const labels = buildLabels(detail);
-    if(!labels.length){ log(`Đơn ${o.name} không có món để in — bỏ qua.`, "warn"); return; }
-    await printLabels(labels);              // IN TRUOC
-    await markPrinted(o.name);              // in xong moi danh dau
-    stats.printed += labels.length; stats.orders++; refreshStats();
-    log(`✔ Đã in ${labels.length} tem cho đơn ${o.name}.`, "ok");
-  } catch(e){
-    stats.err++; refreshStats();
-    // KHONG mark printed neu loi -> vong sau in lai
-    log(`✘ Lỗi đơn ${o.name}: ${e.message} (sẽ thử lại lượt sau)`, "bad");
-  } finally {
-    inFlight.delete(o.name);
-  }
+let orders = [];          // {list row, detail}
+let seen = new Set();     // ten don da thay
+let firstScan = true;
+let busy = new Set();
+
+function statusOf(o){ return o.custom_order_prep_status || "Pending"; }
+
+function renderQueue(){
+  const showDone = cfg().showDone;
+  const visible = orders.filter(o => showDone || !DONE.includes(statusOf(o.row)));
+  $("stPending").textContent = orders.filter(o => !DONE.includes(statusOf(o.row))).length;
+
+  const el = $("queue");
+  if(!visible.length){ el.innerHTML = `<div class="empty">Chưa có đơn web nào đang chờ.</div>`; return; }
+
+  el.innerHTML = visible.map(({row, doc, isNew}) => {
+    const st = ST[statusOf(row)] || ST.Pending;
+    const ful = row.custom_fulfillment || "";
+    const cust = (row.customer_name || "").replace(/\s*\(\d+\)\s*$/,"");
+    const when = row.creation ? new Date(row.creation.replace(" ","T")).toLocaleTimeString("vi-VN") : "";
+    const cups = (doc?.items || []).map(it=>{
+      const n = Math.max(1, Math.round(it.qty||1));
+      return `<li><span class="nm">${esc(it.item_name)}${n>1?` ×${n}`:""}</span>${
+        it.custom_note ? `<div class="nt">📝 ${esc(it.custom_note)}</div>` : ""}</li>`;
+    }).join("");
+    const btn = (s,cls="") => `<button class="${statusOf(row)===s?"on":""} ${cls}"
+        style="color:${ST[s].c}" onclick="onStatus('${row.name}','${s}')">${ST[s].i} ${ST[s].l}</button>`;
+    return `
+    <div class="ord ${isNew?"new":""}">
+      <div class="top"><span class="oid">${esc(row.name)}</span><span class="tot">${money(row.grand_total)}</span></div>
+      <div class="sub">${esc(cust)} · ${esc(row.custom_contact_phone||"")} · ${when}</div>
+      ${row.custom_delivery_address ? `<div class="sub">📍 ${esc(row.custom_delivery_address)}</div>` : ""}
+      <div class="tags">
+        <span class="tag st" style="background:${st.c}">${st.i} ${st.l}</span>
+        ${ful ? `<span class="tag ful">${esc(ful)}</span>` : ""}
+        ${row.custom_printed ? `<span class="tag printed">🖨️ Đã in tem</span>` : ""}
+      </div>
+      <ul class="cups">${cups || "<li>—</li>"}</ul>
+      ${row.custom_order_note ? `<div class="note">Ghi chú đơn: ${esc(row.custom_order_note)}</div>` : ""}
+      <div class="acts">
+        ${btn("Received")}${btn("Preparing")}${btn("Ready")}${btn("Completed")}${btn("Cancelled")}
+        <button class="primary" onclick="onPrint('${row.name}')">🖨️ In tem</button>
+      </div>
+    </div>`;
+  }).join("");
 }
 
-async function scanOnce(){
-  try {
-    const orders = await fetchPending();
-    $("stPending").textContent = orders.length;
-    if(orders.length) log(`Có ${orders.length} đơn chờ in.`, "info");
-    for(const o of orders){ await processOrder(o); }
-  } catch(e){
-    stats.err++; refreshStats();
-    log(`Lỗi quét đơn: ${e.message}`, "bad");
-  }
+async function onStatus(name, status){
+  if(busy.has(name)) return; busy.add(name);
+  try{
+    await setStatus(name, status);
+    const o = orders.find(x=>x.row.name===name);
+    if(o) o.row.custom_order_prep_status = status;   // cap nhat ngay tren UI
+    renderQueue();
+    log(`✔ ${name} → ${ST[status].l}`, "ok");
+  }catch(e){ stats.err++; refreshStats(); log(`✘ ${name}: ${e.message}`, "bad"); }
+  finally{ busy.delete(name); }
+}
+
+async function onPrint(name){
+  if(busy.has(name)) return; busy.add(name);
+  try{
+    const o = orders.find(x=>x.row.name===name);
+    if(!o || !o.doc) throw new Error("Chưa có chi tiết đơn.");
+    const labels = buildLabels(o.doc);
+    if(!labels.length) throw new Error("Đơn không có món.");
+    await printLabels(labels);                 // in truoc
+    await markPrinted(name);                   // in xong moi danh dau
+    o.row.custom_printed = 1;
+    stats.printed += labels.length; refreshStats(); renderQueue();
+    log(`🖨️ Đã in ${labels.length} tem cho ${name}.`, "ok");
+  }catch(e){ stats.err++; refreshStats(); log(`✘ In ${name}: ${e.message}`, "bad"); }
+  finally{ busy.delete(name); }
 }
 
 /* =========================================================================
-   7. VONG LAP TU DONG
+   8. QUET DON
    ========================================================================= */
+async function scan(){
+  try{
+    const rows = await listOrders();
+    const fresh = [];
+    for(const row of rows){
+      let doc = null;
+      try { doc = await getDetail(row); } catch(e){ log(`Lỗi chi tiết ${row.name}: ${e.message}`,"warn"); }
+      fresh.push({ row, doc, isNew:false });
+    }
+
+    // Phat hien don moi (bo qua lan quet dau tien)
+    const newOnes = fresh.filter(o => !seen.has(o.row.name) && !DONE.includes(statusOf(o.row)));
+    fresh.forEach(o => seen.add(o.row.name));
+
+    if(!firstScan && newOnes.length){
+      newOnes.forEach(o => { o.isNew = true; notify(o.row); });
+      beep(); flashTitle(newOnes.length);
+      log(`🔔 ${newOnes.length} đơn web mới: ${newOnes.map(o=>o.row.name).join(", ")}`, "warn");
+      if(cfg().autoPrint){
+        for(const o of newOnes){ if(!o.row.custom_printed) await onPrint(o.row.name); }
+      }
+    }
+    firstScan = false;
+    orders = fresh;
+    renderQueue();
+  }catch(e){
+    stats.err++; refreshStats(); log(`Lỗi quét đơn: ${e.message}`, "bad");
+  }
+}
+
 let timer = null;
 function startLoop(){
   if(timer) return;
-  if(!validateCfg()) return;
+  if(!validate()) return;
+  if(cfg().notify && "Notification" in window && Notification.permission === "default") Notification.requestPermission();
+  try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); audioCtx.resume(); }catch(e){}
   $("btnStart").disabled = true; $("btnStop").disabled = false;
-  log("▶ Bắt đầu tự động in.", "ok");
-  const tick = async () => { await scanOnce(); if(timer) timer = setTimeout(tick, cfg().poll*1000); };
+  log("▶ Bắt đầu theo dõi đơn web.", "ok");
+  const tick = async () => { await scan(); if(timer) timer = setTimeout(tick, cfg().poll*1000); };
   timer = setTimeout(tick, 0);
 }
 function stopLoop(){
   if(timer){ clearTimeout(timer); timer = null; }
   $("btnStart").disabled = false; $("btnStop").disabled = true;
-  log("■ Đã dừng tự động in.", "warn");
+  log("■ Đã dừng theo dõi.", "warn");
 }
-function validateCfg(){
+function validate(){
   const c = cfg();
-  if(!c.baseUrl || !c.apiKey || !c.apiSecret){ log("Thiếu BASE_URL / API Key / Secret.", "bad"); return false; }
-  if(!c.printer){ log("Chưa chọn máy in.", "bad"); return false; }
+  if(!c.baseUrl || !c.apiKey || !c.apiSecret){ log("Thiếu BASE_URL / API Key / Secret.","bad"); return false; }
   return true;
 }
 
 /* =========================================================================
-   8. QZ TRAY — ket noi (che do unsigned; production nen dung certificate)
+   9. QZ TRAY
    ========================================================================= */
 function setupQzSecurity(){
-  // Unsigned: QZ Tray se hien hop thoai "Allow" lan dau — bam "Remember".
   qz.security.setCertificatePromise((resolve) => resolve());
   qz.security.setSignaturePromise(() => (resolve) => resolve());
 }
 function setQzUi(on){
   $("qzDot").classList.toggle("on", on);
   $("statusText").textContent = on ? "QZ Tray đã kết nối" : "Chưa kết nối QZ Tray";
-  ["btnStart","btnOnce","btnReprint","btnTest"].forEach(id => $(id).disabled = !on);
+  $("btnTest").disabled = !on;
 }
 async function connectQz(){
-  try {
+  try{
     setupQzSecurity();
-    if(!qz.websocket.isActive()){
-      log("Đang kết nối QZ Tray…", "info");
-      await qz.websocket.connect();
-    }
-    log("Đã kết nối QZ Tray.", "ok");
+    if(!qz.websocket.isActive()){ log("Đang kết nối QZ Tray…","info"); await qz.websocket.connect(); }
+    log("Đã kết nối QZ Tray.","ok");
     const printers = await qz.printers.find();
-    const sel = $("printer");
-    sel.innerHTML = "";
-    (Array.isArray(printers)?printers:[printers]).forEach(p => {
-      const opt = document.createElement("option"); opt.value = p; opt.textContent = p; sel.appendChild(opt);
+    const sel = $("printer"); sel.innerHTML = "";
+    (Array.isArray(printers)?printers:[printers]).forEach(p=>{
+      const o = document.createElement("option"); o.value = p; o.textContent = p; sel.appendChild(o);
     });
     const saved = sel.dataset.saved;
     if(saved && [...sel.options].some(o=>o.value===saved)) sel.value = saved;
     else { try { sel.value = await qz.printers.getDefault(); } catch(e){} }
-    log(`Tìm thấy ${sel.options.length} máy in.`, "info");
+    log(`Tìm thấy ${sel.options.length} máy in.`,"info");
     setQzUi(true);
-  } catch(e){
+  }catch(e){
     setQzUi(false);
-    log(`Không kết nối được QZ Tray: ${e.message||e}. Kiểm tra QZ Tray đã chạy chưa (icon khay hệ thống).`, "bad");
+    log(`Không kết nối được QZ Tray: ${e.message||e}. Kiểm tra QZ Tray đã chạy chưa.`,"bad");
   }
 }
-
-/* =========================================================================
-   9. NUT + XEM THU
-   ========================================================================= */
-function sampleOrder(){
-  return {
-    name:"SAL-ORD-2026-00007", customer:"Nguyen Van A (0900123456)",
-    customer_name:"Nguyen Van A (0900123456)",
-    custom_contact_phone:"0900123456", custom_order_note:"Giao trước 17h",
-    items:[ {item_code:"NEP-CAM", item_name:"Nước ép cam", qty:1, custom_note:"Ít đá, ít đường"},
-            {item_code:"NEP-CAM", item_name:"Nước ép cam", qty:1, custom_note:"Không đá"},
-            {item_code:"NEP-DUAHAU", item_name:"Dưa hấu ép", qty:1, custom_note:"Bình thường"} ],
-  };
-}
-function renderPreview(){
-  const labels = buildLabels(sampleOrder());
-  const host = $("previewHost");
-  host.innerHTML = "";
-  const c = cfg();
-  // hien thi phong to ~4x cho de nhin
-  const scale = 4, wpx = c.lblW*scale*3.78, hpx = c.lblH*scale*3.78;
-  labels.slice(0,3).forEach(html => {
-    const box = document.createElement("div");
-    box.style.cssText = `display:inline-block;margin:6px;border:1px dashed var(--line);background:#fff;`;
-    const ifr = document.createElement("iframe");
-    ifr.style.cssText = `width:${c.lblW}mm;height:${c.lblH}mm;border:0;transform:scale(${scale});transform-origin:top left;`;
-    box.style.width = wpx+"px"; box.style.height = hpx+"px"; box.style.overflow="hidden";
-    box.appendChild(ifr); host.appendChild(box);
-    ifr.contentDocument.open(); ifr.contentDocument.write(html); ifr.contentDocument.close();
-  });
-}
 async function testPrint(){
-  if(!validateCfg()) return;
-  try { await printLabels(buildLabels(sampleOrder())); log("Đã gửi tem thử ra máy in.", "ok"); }
-  catch(e){ log("In thử lỗi: "+e.message, "bad"); }
-}
-async function reprint(){
-  const name = $("reprintName").value.trim();
-  if(!name){ log("Nhập mã đơn để in lại.", "warn"); return; }
-  try {
-    const detail = await getOrderDetail(name);
-    await printLabels(buildLabels(detail));
-    log(`Đã in lại tem cho đơn ${name} (không đổi cờ đã in).`, "ok");
-  } catch(e){ log("In lại lỗi: "+e.message, "bad"); }
+  const sample = { name:"SAL-ORD-TEST", customer_name:"Khach Thu (0900000000)", custom_contact_phone:"0900000000",
+    custom_fulfillment:"Tới lấy", custom_order_note:"", items:[{item_name:"Cam (L)", qty:1, custom_note:"Ít đá, ít đường"}] };
+  try{ await printLabels(buildLabels(sample)); log("Đã gửi tem thử.","ok"); }
+  catch(e){ log("In thử lỗi: "+e.message,"bad"); }
 }
 
 /* =========================================================================
    10. SU KIEN
    ========================================================================= */
 $("btnConnect").onclick = connectQz;
-$("btnSave").onclick = () => { saveCfg(); renderPreview(); };
+$("btnSave").onclick = saveCfg;
 $("btnStart").onclick = startLoop;
 $("btnStop").onclick = stopLoop;
-$("btnOnce").onclick = scanOnce;
-$("btnReprint").onclick = reprint;
+$("btnOnce").onclick = scan;
 $("btnTest").onclick = testPrint;
-["shopName","lblW","lblH","showQR","stripAccents"].forEach(id => $(id).addEventListener("change", renderPreview));
+$("showDone").addEventListener("change", renderQueue);
 
-window.addEventListener("load", () => {
-  if(typeof qz === "undefined"){ log("Chưa tải được qz-tray.js (kiểm tra internet hoặc để file cạnh index.html).", "bad"); }
-  loadCfg(); refreshStats(); renderPreview();
-  log("Sẵn sàng. Bấm “Kết nối QZ Tray” để bắt đầu.", "info");
+window.addEventListener("load", ()=>{
+  if(typeof qz === "undefined") log("Chưa tải được qz-tray.js (kiểm tra internet).","bad");
+  loadCfg(); refreshStats(); renderQueue();
+  log("Sẵn sàng. Điền cấu hình → Kết nối QZ Tray → Bắt đầu theo dõi.","info");
 });
-window.addEventListener("beforeunload", () => { try { qz.websocket.disconnect(); } catch(e){} });
+window.addEventListener("beforeunload", ()=>{ try{ qz.websocket.disconnect(); }catch(e){} });
 </script>
 </body>
 </html>

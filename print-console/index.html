@@ -305,6 +305,8 @@ function stripAccents(s){
 }
 const esc = s => (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function fmtText(s){ return esc(cfg().stripAccents ? stripAccents(s) : (s||"")); }
+// Mã ngắn cho tem/thẻ: "SAL-ORD-2026-00018" -> "#18" (QR van dung ten day du)
+const shortCode = n => { const m = String(n||"").match(/(\d+)\s*$/); return m ? "#"+parseInt(m[1],10) : (n||""); };
 const money = n => new Intl.NumberFormat('vi-VN').format(Math.round(n||0)) + 'đ';
 function authHeaders(extra){
   const c = cfg();
@@ -447,7 +449,7 @@ function buildLabels(order){
     const note = fmtText(it.custom_note || orderNote || "");
     for(let k=0;k<n;k++){
       idx++;
-      labels.push(labelHtml({ w:c.lblW, h:c.lblH, shop, name:nameTxt, order:order.name, idx, total, cust, phone, note, qr, ful }));
+      labels.push(labelHtml({ w:c.lblW, h:c.lblH, shop, name:nameTxt, order:shortCode(order.name), idx, total, cust, phone, note, qr, ful }));
     }
   }
   return labels;
@@ -478,7 +480,7 @@ function labelHtml(d){
     .body{ display:flex; gap:1.5mm; }
     .body .txt{ flex:1; min-width:0; }
     .foot{ font-size:2.2mm; line-height:1.15; margin-top:.4mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .ord{ font-size:2.2mm; font-weight:700; }
+    .ord{ font-size:3.4mm; font-weight:800; margin-top:.3mm; }
   </style></head><body>
     <div class="lbl">
       <div class="top"><span>${d.shop}</span>${d.ful?`<span class="ful">${d.ful}</span>`:``}<span>${d.idx}/${d.total}</span></div>
@@ -552,7 +554,7 @@ function renderQueue(){
       </div>
       <ul class="cups">${cups || "<li>—</li>"}</ul>
       ${row.custom_order_note ? `<div class="note">Ghi chú đơn: ${esc(row.custom_order_note)}</div>` : ""}
-      <div class="sub"><span class="oid">${esc(row.name)}</span> · ${when}</div>
+      <div class="sub"><span class="oid">Đơn ${esc(shortCode(row.name))}</span> · ${esc(row.name)} · ${when}</div>
       <div class="acts">
         ${btn("Received")}${btn("Preparing")}${btn("Ready")}${btn("Completed")}${btn("Cancelled")}
         <button class="primary" onclick="onPrint('${row.name}')">🖨️ In tem</button>

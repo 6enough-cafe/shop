@@ -24,5 +24,8 @@ window.CONFIG = {
   TRACK_METHOD:  "pos_next.api.webshop.get_order_status",
 
   // Method tra đơn theo số điện thoại
-  ORDERS_METHOD: "juice.get_orders_by_phone"
+  ORDERS_METHOD: "juice.get_orders_by_phone",
+
+  // Method phân giải mã ngắn (#18) -> tên đơn đầy đủ
+  FIND_METHOD:   "juice.find_order"
 };

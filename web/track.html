@@ -106,10 +106,10 @@
 
   <div id="panel-code" class="panel">
     <div class="searchbar">
-      <input id="oid" placeholder="Mã đơn, vd SAL-ORD-2026-00012" autocomplete="off">
+      <input id="oid" type="tel" inputmode="numeric" placeholder="Mã đơn, vd 18" autocomplete="off">
       <button onclick="track()">Theo dõi</button>
     </div>
-    <div class="hint">Mã đơn có dạng <code>SAL-ORD-2026-…</code>. Bạn thấy nó <b>ngay sau khi đặt xong</b> (màn “Đã gửi đơn!”) và khi quán nhắn xác nhận. Khó nhớ? Hãy dùng tab <b>“Theo SĐT”</b>.</div>
+    <div class="hint">Nhập <b>mã đơn ngắn</b> dạng <code>#18</code> (chỉ cần gõ <code>18</code>) — hiện ở màn “Đã gửi đơn!” sau khi đặt. Không nhớ? Dùng tab <b>“Theo SĐT”</b>.</div>
   </div>
 
   <div id="banner"></div>
@@ -121,8 +121,21 @@ const CONFIG = window.CONFIG || {};
 const BASE = (CONFIG.BASE_URL || "").replace(/\/+$/,"");
 const TRACK_METHOD = CONFIG.TRACK_METHOD || "pos_next.api.webshop.get_order_status";
 const ORDERS_METHOD = CONFIG.ORDERS_METHOD || "juice.get_orders_by_phone";
+const FIND_METHOD = CONFIG.FIND_METHOD || "juice.find_order";
 const fmt = n => new Intl.NumberFormat('vi-VN').format(Math.round(n||0)) + 'đ';
 const esc = s => (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// Mã ngắn cho khách: "SAL-ORD-2026-00018" -> "#18"
+const shortCode = n => { const m = String(n||'').match(/(\d+)\s*$/); return m ? '#'+parseInt(m[1],10) : (n||''); };
+const isFullName = s => /^SAL-ORD-/i.test((s||'').trim());
+async function resolveCode(code){
+  const res = await fetch(`${BASE}/api/method/${FIND_METHOD}?code=${encodeURIComponent(code)}`, {headers:{'Accept':'application/json'}});
+  const data = await res.json();
+  if(!res.ok){
+    const msg = (data._server_messages ? JSON.parse(data._server_messages).map(m=>JSON.parse(m).message).join(' ') : '') || 'Không tìm thấy đơn.';
+    throw new Error(msg);
+  }
+  return data.message.name;
+}
 const ST = {
   Pending:{l:'Chờ xác nhận',i:'⏳',c:'#6B7280'}, Received:{l:'Đã nhận đơn',i:'✅',c:'#3B82F6'},
   Preparing:{l:'Đang chuẩn bị',i:'👨‍🍳',c:'#F59E0B'}, Ready:{l:'Sẵn hàng',i:'🎉',c:'#10B981'},
@@ -172,7 +185,7 @@ function renderList(orders){
     return `<div class="ocard" onclick="openOrder('${esc(o.name)}')">
       <div class="r1"><span class="sum">${esc(o.summary||o.name)}</span>
         <span class="chip" style="background:${s.c}">${s.i} ${esc(s.l)}</span></div>
-      <div class="r2"><span>${esc(o.name)} · ${esc(d)}</span><span><b style="color:var(--pulp-dk)">${fmt(o.grand_total)}</b> <span class="go">›</span></span></div>
+      <div class="r2"><span>Đơn ${esc(shortCode(o.name))} · ${esc(d)}</span><span><b style="color:var(--pulp-dk)">${fmt(o.grand_total)}</b> <span class="go">›</span></span></div>
       ${ful}
     </div>`;
   }).join('') + `</div>`;
@@ -183,11 +196,13 @@ function openOrder(name){ track(name); }
 async function track(id, auto){
   stopRefresh();
   const out = document.getElementById('out');
-  const oid = (id || document.getElementById('oid').value || '').trim();
+  let oid = (id || document.getElementById('oid').value || '').trim();
   if(!oid){ out.innerHTML = ''; return; }
-  if(!id) history.replaceState(null,'',`?order=${encodeURIComponent(oid)}`);
   if(!auto) out.innerHTML = '<div class="status">Đang tra cứu…</div>';
   try{
+    // Khách gõ mã ngắn (#18 / 18) -> phân giải sang tên đơn đầy đủ
+    if(!isFullName(oid)){ oid = await resolveCode(oid); }
+    if(!id) history.replaceState(null,'',`?order=${encodeURIComponent(oid)}`);
     const res = await fetch(`${BASE}/api/method/${TRACK_METHOD}?order_id=${encodeURIComponent(oid)}`,
       {headers:{'Accept':'application/json'}});
     const data = await res.json();
@@ -216,7 +231,7 @@ function renderStatus(o){
     <div class="card">
       <div class="${nowCls}" ${bg}>
         <div class="ic">${o.status_icon||'⏳'}</div>
-        <div><div class="lbl">${esc(o.status_label)}</div><div class="sub">Mã đơn ${esc(o.order_id)}</div></div>
+        <div><div class="lbl">${esc(o.status_label)}</div><div class="sub">Đơn ${esc(shortCode(o.order_id))}</div></div>
       </div>
       <div class="meta"><span>Khách: <b>${esc(o.customer||'')}</b></span><span>${esc(created)}</span></div>
     </div>
@@ -237,7 +252,7 @@ window.addEventListener('load', ()=>{
   if(isNew && qo){
     document.getElementById('banner').innerHTML = `
       <div class="ok-banner"><div class="b">✅</div>
-        <div><b>Đã gửi đơn ${esc(qo)}</b>
+        <div><b>Đã gửi đơn ${esc(shortCode(qo))}</b>
         Quán sẽ xác nhận sớm. Theo dõi tiến độ ngay bên dưới —
         <a href="index.html" style="color:#2F5E1E;font-weight:700">đặt thêm món</a>.</div>
       </div>`;

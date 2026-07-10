@@ -63,6 +63,7 @@ def ensure_ss(docname, method, script, allow_guest=1):
 ensure_ss("juice_get_menu", "juice.get_menu", _read("server_script_get_menu.py"))
 ensure_ss("juice_create_order", "juice.create_order", _read("server_script_create_order.py"))
 ensure_ss("juice_get_orders_by_phone", "juice.get_orders_by_phone", _read("server_script_orders_by_phone.py"))
+ensure_ss("juice_find_order", "juice.find_order", _read("server_script_find_order.py"))
 # Chi cho user da dang nhap (Ban don web dung API key) — KHONG allow guest
 ensure_ss("juice_mark_printed", "juice.mark_printed", _read("server_script_mark_printed.py"), allow_guest=0)
 frappe.db.commit()

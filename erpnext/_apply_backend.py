@@ -45,7 +45,7 @@ print("custom fields: OK")
 
 
 # ---- 2) Server Scripts (Allow Guest, type API) ----
-def ensure_ss(docname, method, script):
+def ensure_ss(docname, method, script, allow_guest=1):
     if frappe.db.exists("Server Script", docname):
         d = frappe.get_doc("Server Script", docname)
     else:
@@ -53,7 +53,7 @@ def ensure_ss(docname, method, script):
         d.name = docname
     d.script_type = "API"
     d.api_method = method
-    d.allow_guest = 1
+    d.allow_guest = allow_guest
     d.disabled = 0
     d.script = script
     d.save(ignore_permissions=True)
@@ -63,6 +63,8 @@ def ensure_ss(docname, method, script):
 ensure_ss("juice_get_menu", "juice.get_menu", _read("server_script_get_menu.py"))
 ensure_ss("juice_create_order", "juice.create_order", _read("server_script_create_order.py"))
 ensure_ss("juice_get_orders_by_phone", "juice.get_orders_by_phone", _read("server_script_orders_by_phone.py"))
+# Chi cho user da dang nhap (Ban don web dung API key) — KHONG allow guest
+ensure_ss("juice_mark_printed", "juice.mark_printed", _read("server_script_mark_printed.py"), allow_guest=0)
 frappe.db.commit()
 print("server scripts: OK -> juice.get_menu, juice.create_order")
 print("BACKEND SETUP DONE")

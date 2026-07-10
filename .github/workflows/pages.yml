@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - "web/**"
+      - "print-console/index.html"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -28,6 +29,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # Ban don web (Order Station) -> /shop/station/. config.local.js (chua API key)
+      # da bi .gitignore nen KHONG bao gio co trong repo/artifact.
+      - name: Assemble station page
+        run: |
+          mkdir -p web/station
+          cp print-console/index.html web/station/index.html
       - uses: actions/configure-pages@v5
         with:
           enablement: true

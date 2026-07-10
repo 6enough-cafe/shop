@@ -27,17 +27,18 @@
   :root { --bg:#0f1216; --panel:#171c22; --line:#2a323c; --fg:#e7edf3; --muted:#8b97a4;
           --ok:#31c48d; --bad:#f05252; --warn:#e3a008; --acc:#4f9cf9; --new:#f26b1d; }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--fg); }
+  body { margin:0; font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--fg); overflow-x:hidden; }
   header { padding:12px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
   header h1 { font-size:17px; margin:0; }
   .dot { width:11px; height:11px; border-radius:50%; background:var(--bad); display:inline-block; }
   .dot.on { background:var(--ok); }
   /* Cai dat an trong ngan keo, mo bang PIN */
   .wrap { min-height:calc(100vh - 50px); }
-  .side { position:fixed; top:0; left:0; bottom:0; width:330px; z-index:60; background:var(--bg);
+  .side { position:fixed; top:0; left:0; bottom:0; width:min(330px, 88vw); z-index:60; background:var(--bg);
           border-right:1px solid var(--line); padding:14px; overflow:auto;
-          transform:translateX(-102%); transition:transform .22s ease; }
-  .side.open { transform:translateX(0); }
+          transform:translateX(-102%); transition:transform .22s ease, visibility .22s;
+          visibility:hidden; }                 /* visibility:hidden -> khong tao chieu rong ao */
+  .side.open { transform:translateX(0); visibility:visible; }
   .side h2 { font-size:15px; margin:0 0 12px; }
   .scrim { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:55; opacity:0; pointer-events:none; transition:opacity .22s; }
   .scrim.open { opacity:1; pointer-events:auto; }
@@ -64,7 +65,26 @@
   .stat span { font-size:11.5px; color:var(--muted); }
 
   /* ---- Hang cho don ---- */
-  .queue { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:12px; }
+  .queue { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
+  @media (max-width:640px){
+    header { padding:10px 12px; gap:8px; }
+    header h1 { font-size:15px; }
+    #statusText { display:none; }
+    .main { padding:10px; }
+    .bar { gap:10px; }
+    .bar .stat b { font-size:18px; }
+    .queue { grid-template-columns:minmax(0,1fr); }
+    header button, .bar button { font-size:12px; padding:7px 10px; }
+    .spacer { display:none; }
+    header { justify-content:flex-start; }
+    .bar-actions { width:100%; }
+    .bar-actions button { flex:1 1 auto; }
+    /* Nut trang thai: luoi 3 cot cho deu, khong tran mep */
+    .acts { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+    .acts button { font-size:11px; padding:7px 4px; }
+    .acts .primary { grid-column:1 / -1; }   /* In tem: 1 hang rieng */
+  }
+  .bar-actions { display:flex; gap:8px; flex-wrap:wrap; }
   .ord { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:13px 14px; position:relative; }
   .ord.new { border-color:var(--new); box-shadow:0 0 0 2px rgba(242,107,29,.28); animation:pulse 1.1s ease-in-out 6; }
   @keyframes pulse { 0%,100%{box-shadow:0 0 0 2px rgba(242,107,29,.25)} 50%{box-shadow:0 0 0 7px rgba(242,107,29,0)} }
@@ -94,6 +114,18 @@
          background:#0b0e12; border:1px solid var(--line); border-radius:10px; padding:10px;
          height:150px; overflow:auto; white-space:pre-wrap; margin-top:14px; }
   .log-ok{color:var(--ok);} .log-bad{color:var(--bad);} .log-warn{color:var(--warn);} .log-info{color:var(--muted);}
+
+  /* Override mobile — dat CUOI de thang thu tu so voi .acts goc o tren */
+  @media (max-width:640px){
+    html { overflow-x:hidden; }
+    header h1 { flex:1 1 100%; }              /* tieu de rieng 1 dong -> nut xuong hang duoi */
+    .main, .queue, .ord, .acts, .bar { min-width:0; max-width:100%; }
+    .ord { overflow:hidden; }
+    .acts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+    .acts button { font-size:11px; padding:7px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .acts .primary { grid-column:1 / -1; }
+    .bar-actions button { min-width:0; }
+  }
 </style>
 </head>
 <body>
@@ -102,7 +134,7 @@
   <span id="qzDot" class="dot" title="QZ Tray"></span>
   <h1>Bàn đơn web — 6 Enough</h1>
   <span id="statusText" style="color:var(--muted);font-size:12.5px;">Chưa kết nối QZ Tray</span>
-  <div style="flex:1"></div>
+  <div class="spacer" style="flex:1"></div>
   <button id="btnConnectTop">🔌 Kết nối QZ Tray</button>
   <button id="btnSettings" title="Cần mã PIN">⚙️ Cài đặt</button>
 </header>
@@ -142,9 +174,20 @@
     <fieldset>
       <legend>Báo đơn mới</legend>
       <div class="chk"><input id="sound" type="checkbox" checked> 🔔 Chuông khi có đơn mới</div>
+      <div class="row" style="margin-top:6px;align-items:center">
+        <label style="margin:0;flex:1">Lặp chuông</label>
+        <select id="soundRepeat" style="flex:1">
+          <option value="1">1 lần</option>
+          <option value="2" selected>2 lần</option>
+          <option value="3">3 lần</option>
+          <option value="5">5 lần</option>
+        </select>
+        <button id="btnTestSound" style="flex:0 0 auto">🔊 Thử</button>
+      </div>
       <div class="chk"><input id="notify" type="checkbox" checked> 🖥️ Thông báo hệ thống</div>
       <div class="chk"><input id="autoPrint" type="checkbox"> 🖨️ Tự in tem khi đơn mới về</div>
       <div class="chk"><input id="showDone" type="checkbox"> Hiện cả đơn đã xong/đã hủy</div>
+      <div class="chk"><input id="keepAwake" type="checkbox" checked> 📱 Giữ màn hình sáng khi theo dõi</div>
       <label>Chu kỳ quét (giây)</label>
       <input id="poll" type="number" value="5">
     </fieldset>
@@ -163,10 +206,12 @@
       <div class="stat"><b id="stPending">0</b><span>Đơn đang chờ</span></div>
       <div class="stat"><b id="stPrinted">0</b><span>Tem đã in (phiên này)</span></div>
       <div class="stat"><b id="stErr">0</b><span>Lỗi</span></div>
-      <div style="flex:1"></div>
-      <button id="btnStart" class="good">▶ Bắt đầu theo dõi</button>
-      <button id="btnStop" class="stop" disabled>■ Dừng</button>
-      <button id="btnOnce">🔄 Quét ngay</button>
+      <div class="spacer" style="flex:1"></div>
+      <div class="bar-actions">
+        <button id="btnStart" class="good">▶ Bắt đầu theo dõi</button>
+        <button id="btnStop" class="stop" disabled>■ Dừng</button>
+        <button id="btnOnce">🔄 Quét ngay</button>
+      </div>
     </div>
 
     <div id="queue" class="queue"></div>
@@ -184,12 +229,16 @@ const LS_KEY = "juice_order_station_cfg";
 function loadCfg(){
   let c = {};
   try { c = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
-  // config.local.js lam gia tri mac dinh khi localStorage chua co
+  // config.local.js lam gia tri mac dinh khi localStorage chua co.
+  // DEFAULT_BASE: URL ERPNext cong khai (khong bi mat — trang menu khach cung dung).
+  const DEFAULT_BASE = "https://book3.tail030e1.ts.net";
   const d = window.STATION_CONFIG || {};
-  $("baseUrl").value = c.baseUrl || d.baseUrl || "";
+  $("baseUrl").value = c.baseUrl || d.baseUrl || DEFAULT_BASE;
   $("apiKey").value = c.apiKey || d.apiKey || "";
   $("apiSecret").value = c.apiSecret || d.apiSecret || "";
   $("shopName").value = c.shopName || d.shopName || "6 ENOUGH";
+  $("soundRepeat").value = String(c.soundRepeat || 2);
+  $("keepAwake").checked = c.keepAwake !== false;
   $("lblW").value = c.lblW || 50;
   $("lblH").value = c.lblH || 30;
   $("poll").value = c.poll || 5;
@@ -214,9 +263,11 @@ function cfg(){
     showQR: $("showQR").checked,
     stripAccents: $("stripAccents").checked,
     sound: $("sound").checked,
+    soundRepeat: parseInt($("soundRepeat").value) || 2,
     notify: $("notify").checked,
     autoPrint: $("autoPrint").checked,
     showDone: $("showDone").checked,
+    keepAwake: $("keepAwake").checked,
   };
 }
 function saveCfg(){ localStorage.setItem(LS_KEY, JSON.stringify(cfg())); log("Đã lưu cấu hình.","ok"); }
@@ -275,23 +326,34 @@ const DONE = ["Completed","Cancelled"];
    4. CHUONG + THONG BAO
    ========================================================================= */
 let audioCtx = null;
-function beep(){
-  if(!cfg().sound) return;
-  try{
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    const t0 = audioCtx.currentTime;
-    [880, 1320].forEach((f,i)=>{
-      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-      o.type = "sine"; o.frequency.value = f;
-      const s = t0 + i*0.18;
-      g.gain.setValueAtTime(0.0001, s);
-      g.gain.exponentialRampToValueAtTime(0.35, s+0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, s+0.16);
-      o.connect(g); g.connect(audioCtx.destination);
-      o.start(s); o.stop(s+0.18);
-    });
-  }catch(e){}
+function ensureAudio(){
+  try{ audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if(audioCtx.state==="suspended") audioCtx.resume(); }catch(e){}
+  return audioCtx;
 }
+// 1 nốt chuông kiểu "phím rung" — sine + hài bậc 2 nhẹ, đường bao mềm
+function tone(ac, dest, freq, start, dur, vol){
+  const o = ac.createOscillator(), o2 = ac.createOscillator(), g = ac.createGain();
+  o.type = "sine";     o.frequency.value = freq;
+  o2.type = "sine";    o2.frequency.value = freq*2;   // hài bậc 2 -> ấm, giống chuông
+  const g2 = ac.createGain(); g2.gain.value = 0.25;
+  g.gain.setValueAtTime(0.0001, start);
+  g.gain.exponentialRampToValueAtTime(vol, start+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, start+dur);
+  o.connect(g); o2.connect(g2); g2.connect(g); g.connect(dest);
+  o.start(start); o2.start(start); o.stop(start+dur+0.02); o2.stop(start+dur+0.02);
+}
+// Chime 3 nốt đi lên (C6-E6-G6) — dễ chịu, rõ. Lặp theo cấu hình.
+function chime(ac, dest, at){
+  const notes = [1046.5, 1318.5, 1568.0];
+  notes.forEach((f,i)=> tone(ac, dest, f, at + i*0.15, 0.42, 0.5));
+}
+function playChime(times){
+  const ac = ensureAudio(); if(!ac) return;
+  const master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination);
+  const rep = Math.max(1, times || 1);
+  for(let r=0; r<rep; r++) chime(ac, master, ac.currentTime + r*0.75);
+}
+function beep(){ if(cfg().sound) playChime(cfg().soundRepeat); }
 let titleTimer = null;
 function flashTitle(n){
   clearInterval(titleTimer);
@@ -560,12 +622,22 @@ async function scan(){
   }
 }
 
+// Giu man hinh sang (dien thoai/kitchen display)
+let wakeLock = null;
+async function acquireWakeLock(){
+  if(!cfg().keepAwake || !("wakeLock" in navigator)) return;
+  try{ wakeLock = await navigator.wakeLock.request("screen"); }catch(e){}
+}
+async function releaseWakeLock(){ try{ if(wakeLock){ await wakeLock.release(); wakeLock = null; } }catch(e){} }
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible" && timer) acquireWakeLock(); });
+
 let timer = null;
 function startLoop(){
   if(timer) return;
   if(!validate()) return;
   if(cfg().notify && "Notification" in window && Notification.permission === "default") Notification.requestPermission();
-  try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); audioCtx.resume(); }catch(e){}
+  ensureAudio();                    // mo khoa am thanh (can 1 thao tac nguoi dung)
+  acquireWakeLock();
   $("btnStart").disabled = true; $("btnStop").disabled = false;
   log("▶ Bắt đầu theo dõi đơn web.", "ok");
   const tick = async () => { await scan(); if(timer) timer = setTimeout(tick, cfg().poll*1000); };
@@ -573,6 +645,7 @@ function startLoop(){
 }
 function stopLoop(){
   if(timer){ clearTimeout(timer); timer = null; }
+  releaseWakeLock();
   $("btnStart").disabled = false; $("btnStop").disabled = true;
   log("■ Đã dừng theo dõi.", "warn");
 }
@@ -645,6 +718,7 @@ $("scrim").onclick = closeSettings;
 $("btnConnect").onclick = connectQz;
 $("btnConnectTop").onclick = connectQz;   // ngoai header: khong can PIN
 $("btnSave").onclick = () => { saveCfg(); closeSettings(); };
+$("btnTestSound").onclick = () => { playChime(parseInt($("soundRepeat").value)||2); };
 $("btnStart").onclick = startLoop;
 $("btnStop").onclick = stopLoop;
 $("btnOnce").onclick = scan;

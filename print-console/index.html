@@ -19,6 +19,10 @@
 <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 
+<!-- Cau hinh cuc bo (BASE_URL + API key). File nay KHONG len repo (.gitignore).
+     Neu khong co, chi can dien tay vao form ben trai. -->
+<script src="./config.local.js" onerror="console.info('Khong co config.local.js — dien tay')"></script>
+
 <style>
   :root { --bg:#0f1216; --panel:#171c22; --line:#2a323c; --fg:#e7edf3; --muted:#8b97a4;
           --ok:#31c48d; --bad:#f05252; --warn:#e3a008; --acc:#4f9cf9; --new:#f26b1d; }
@@ -163,10 +167,12 @@ const LS_KEY = "juice_order_station_cfg";
 function loadCfg(){
   let c = {};
   try { c = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e){}
-  $("baseUrl").value = c.baseUrl || "";
-  $("apiKey").value = c.apiKey || "";
-  $("apiSecret").value = c.apiSecret || "";
-  $("shopName").value = c.shopName || "6 ENOUGH";
+  // config.local.js lam gia tri mac dinh khi localStorage chua co
+  const d = window.STATION_CONFIG || {};
+  $("baseUrl").value = c.baseUrl || d.baseUrl || "";
+  $("apiKey").value = c.apiKey || d.apiKey || "";
+  $("apiSecret").value = c.apiSecret || d.apiSecret || "";
+  $("shopName").value = c.shopName || d.shopName || "6 ENOUGH";
   $("lblW").value = c.lblW || 50;
   $("lblH").value = c.lblH || 30;
   $("poll").value = c.poll || 5;
@@ -602,7 +608,15 @@ $("showDone").addEventListener("change", renderQueue);
 window.addEventListener("load", ()=>{
   if(typeof qz === "undefined") log("Chưa tải được qz-tray.js (kiểm tra internet).","bad");
   loadCfg(); refreshStats(); renderQueue();
-  log("Sẵn sàng. Điền cấu hình → Kết nối QZ Tray → Bắt đầu theo dõi.","info");
+  const c = cfg();
+  if(c.baseUrl && c.apiKey && c.apiSecret){
+    // Da co cau hinh -> nap hang cho ngay. Bam "Bat dau theo doi" de co chuong
+    // (trinh duyet chi cho phat am thanh sau 1 thao tac nguoi dung).
+    log("Đã nạp cấu hình. Đang tải hàng chờ…","info");
+    scan();
+  } else {
+    log("Sẵn sàng. Điền cấu hình → Kết nối QZ Tray → Bắt đầu theo dõi.","info");
+  }
 });
 window.addEventListener("beforeunload", ()=>{ try{ qz.websocket.disconnect(); }catch(e){} });
 </script>

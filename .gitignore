@@ -1,0 +1,6 @@
+# Cau hinh cuc bo cua Ban don web — CHUA API KEY. Khong bao gio commit.
+print-console/config.local.js
+
+# Rac tam
+*.log
+.DS_Store

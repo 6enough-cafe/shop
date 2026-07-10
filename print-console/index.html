@@ -364,6 +364,14 @@ function buildLabels(order){
   }
   return labels;
 }
+// Tu co co chu theo do dai ten mon (cot chu chi ~34mm sau khi tru QR)
+function nameFont(name){
+  const L = (name || "").length;
+  if(L <= 13) return "4.6mm";
+  if(L <= 18) return "3.8mm";
+  if(L <= 26) return "3.2mm";
+  return "2.8mm";
+}
 function labelHtml(d){
   const qrBlock = d.qr ? `<img src="${d.qr}" style="width:11mm;height:11mm;image-rendering:pixelated;">` : "";
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
@@ -374,8 +382,10 @@ function labelHtml(d){
     .top{ display:flex; justify-content:space-between; align-items:baseline;
           font-size:2.4mm; font-weight:700; border-bottom:.3mm solid #000; padding-bottom:.4mm; }
     .top .ful{ font-size:2.2mm; font-weight:800; padding:0 .6mm; border:.25mm solid #000; border-radius:.6mm; }
-    .name{ font-size:4.6mm; font-weight:800; line-height:1.05; margin:.8mm 0 .3mm;
-            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* Ten mon: toi da 2 dong, co chu tu co -> KHONG cat mat (L)/(M) */
+    .name{ font-size:${nameFont(d.name)}; font-weight:800; line-height:1.06; margin:.7mm 0 .3mm;
+            display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+            overflow:hidden; word-break:break-word; }
     .note{ font-size:2.4mm; line-height:1.1; max-height:5mm; overflow:hidden; }
     .body{ display:flex; gap:1.5mm; }
     .body .txt{ flex:1; min-width:0; }

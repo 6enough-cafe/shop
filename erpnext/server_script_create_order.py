@@ -31,10 +31,24 @@ fulfillment_label = "Tới lấy" if is_pickup else "Giao tận nơi"
 
 if not cust_name or not phone:
     frappe.throw("Thiếu tên hoặc số điện thoại.")
+
+# --- Validate SĐT VN (safe_exec khong co module re -> kiem tra thu cong) ---
+phone_digits = "".join([c for c in phone if c in "0123456789"])
+if len(phone_digits) != 10 or not phone_digits.startswith("0") or phone_digits[1] not in "3456789":
+    frappe.throw("Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0).")
+phone = phone_digits
+
+# --- Cat gioi han do dai (chong nhoi du lieu) ---
+cust_name = cust_name[:80]
+address = address[:255]
+note = note[:255]
+
 if not is_pickup and not address:
     frappe.throw("Giao tận nơi cần địa chỉ.")
 if not items:
     frappe.throw("Giỏ hàng trống.")
+if len(items) > 30:
+    frappe.throw("Đơn quá nhiều món, vui lòng tách đơn.")
 
 # Whitelist = đúng bộ Item Group cho phép trong POS Profile (khớp menu POS Next)
 profile = frappe.get_doc("POS Profile", POS_PROFILE_NAME)
@@ -49,6 +63,8 @@ for it in items:
     qty  = float(it.get("qty") or 0)
     if not code or qty <= 0:
         continue
+    if qty > 20:
+        qty = 20   # gioi han so luong moi mon
     doc_item = frappe.db.get_value(
         "Item", code, ["item_group", "is_sales_item", "disabled"], as_dict=True
     )

@@ -145,6 +145,18 @@ let timer = null, lastPhone = '';
 const qparam = k => new URLSearchParams(location.search).get(k);
 function stopRefresh(){ if(timer){ clearTimeout(timer); timer=null; } }
 
+// Rate-limit MEM phia client (chi chong spam vo y — de bypass, lop phu).
+// Bao ve THAT phai o edge/nginx, xem SECURITY.md.
+function checkRateLimit(key, maxAttempts, windowMs){
+  const now = Date.now(), sk = 'rl_'+key;
+  let d; try{ d = JSON.parse(localStorage.getItem(sk) || '{"c":0,"r":0}'); }catch(e){ d = {c:0,r:0}; }
+  if(now > d.r){ d.c = 0; d.r = now + windowMs; }
+  d.c++; localStorage.setItem(sk, JSON.stringify(d));
+  if(d.c > maxAttempts){
+    throw new Error('Bạn tra cứu hơi nhiều. Vui lòng đợi '+Math.ceil((d.r-now)/1000)+' giây.');
+  }
+}
+
 function setTab(t){
   stopRefresh();
   document.getElementById('tab-phone').classList.toggle('on', t==='phone');
@@ -164,6 +176,7 @@ async function lookupPhone(){
   history.replaceState(null,'',`?phone=${encodeURIComponent(phone)}`);
   out.innerHTML = '<div class="status">Đang tìm đơn…</div>';
   try{
+    checkRateLimit('track_phone', 10, 60000);   // toi da 10 lan/phut
     const res = await fetch(`${BASE}/api/method/${ORDERS_METHOD}?phone=${encodeURIComponent(phone)}`,
       {headers:{'Accept':'application/json'}});
     const data = await res.json();

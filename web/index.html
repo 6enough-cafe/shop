@@ -157,7 +157,7 @@
   <div class="blob"></div>
   <a href="track.html" style="position:absolute;right:16px;top:18px;color:#fff;background:rgba(255,255,255,.20);padding:7px 12px;border-radius:20px;text-decoration:none;font-size:13px;font-weight:700;z-index:2">🔎 Theo dõi đơn</a>
   <h1>6 Enough</h1>
-  <p>Chọn món, để lại thông tin — quán làm tuỳ hứng, khách có duyên mới có ly vừa ý 🍹</p>
+  <p>Chọn món, để lại tên, sđt, theo dõi đơn.</p>
 </header>
 
 <main>
@@ -239,7 +239,7 @@ async function loadMenu(){
     renderCats();
     renderMenu();
   }catch(err){
-    menuEl.innerHTML = `<div class="status error">Không tải được thực đơn.<br>${err.message}
+    menuEl.innerHTML = `<div class="status error">Không tải được thực đơn.<br>${escAttr(err.message||'')}
       <br><small>Kiểm tra BASE_URL, CORS và quyền Guest đọc Item.</small></div>`;
   }
 }
@@ -299,11 +299,11 @@ function renderMenu(){
 
   let html = '';
   for(const [g, list] of Object.entries(groups)){
-    html += `<div class="cat-title">${g}</div>`;
+    html += `<div class="cat-title">${escAttr(g)}</div>`;
     list.forEach(i=>{
       const q = cart[i.item_code]?.qty || 0;
       const img = i.image
-        ? `<img src="${CONFIG.BASE_URL}${i.image}" alt="" onerror="this.replaceWith(mkNoImg())">`
+        ? `<img src="${CONFIG.BASE_URL}${encodeURI(i.image)}" alt="" onerror="this.replaceWith(mkNoImg())">`
         : `<div class="noimg">🥤</div>`;
       // Bỏ mô tả nếu trùng tên món (ERPNext hay set description = item_name)
       const desc = stripHtml(i.description);
@@ -311,8 +311,8 @@ function renderMenu(){
       <div class="card">
         ${img}
         <div class="info">
-          <p class="name">${i.item_name}</p>
-          ${desc && desc !== i.item_name ? `<p class="desc">${desc}</p>`:''}
+          <p class="name">${escAttr(i.item_name)}</p>
+          ${desc && desc !== i.item_name ? `<p class="desc">${escAttr(desc)}</p>`:''}
           <span class="price">${fmt(i.price)}</span>
         </div>
         ${ q>0
@@ -471,6 +471,10 @@ function renderSheet(){
       <label>Ghi chú chung cả đơn (tuỳ chọn)</label>
       <textarea id="f-note" placeholder="vd: giao trước 17h, gọi trước khi tới…">${getVal('f-note')}</textarea>
 
+      <p style="font-size:12px;color:var(--muted);margin:8px 2px 0;line-height:1.5">
+        🔒 SĐT chỉ dùng để xác nhận đơn và tra cứu tình trạng. Quán không chia sẻ cho bên thứ ba.
+      </p>
+
       <button class="submit" id="submitBtn" onclick="submitOrder()">
         Gửi đơn • ${fmt(cartTotal())}
       </button>
@@ -492,6 +496,7 @@ async function submitOrder(){
   const note = (_form['f-note']||'').trim();
 
   if(!name || !phone){ alert('Vui lòng nhập Họ tên và SĐT.'); return; }
+  if(!/^0[3-9]\d{8}$/.test(phone)){ alert('Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0).'); return; }
   if(!isPickup && !addr){ alert('Giao tận nơi cần nhập Địa chỉ.'); return; }
   if(cartCount()===0){ alert('Giỏ đang trống.'); return; }
 
